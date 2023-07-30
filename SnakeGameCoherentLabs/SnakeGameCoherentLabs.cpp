@@ -2,6 +2,7 @@
 #include "SDL.h"
 #include "SDL_ttf.h"
 #include <vector>
+#include <functional>
 
 
 class Position {
@@ -63,6 +64,34 @@ protected:
     Dimension dimension_;
     SDL_Color color_;
 };
+
+class Button : public Rectangle {
+public:
+    using Callback = std::function<void()>;
+
+    Button(Position pos = Position(), Dimension dim = Dimension(), Callback callback = nullptr)
+        : Rectangle(pos, dim), callback_(callback) {}
+
+    void OnClick() {
+
+        std::cout << "You clicked!" << std::endl;
+        if (callback_) {
+            callback_();
+        }
+    }
+
+    void CheckClick(int mouseX, int mouseY) {
+        if (mouseX >= position_.GetX() && mouseX <= position_.GetX() + dimension_.GetWidth() &&
+            mouseY >= position_.GetY() && mouseY <= position_.GetY() + dimension_.GetHeight()) {
+            OnClick();
+        }
+    }
+
+private:
+    Callback callback_;
+};
+
+
 
 class Text : public Rectangle {
 public:
@@ -235,7 +264,7 @@ public:
                     currentScreen_->HandleEvents(evt);
                 }
             }
-            currentScreen_->PrintScreenName();
+           // currentScreen_->PrintScreenName();
             if (currentScreen_) {
                 currentScreen_->Render(renderer_);
             }
@@ -312,19 +341,26 @@ public:
         Rectangle* rectangle = new Rectangle(Position(centerX, centerY), Dimension(100, 100));
         rectangle->SetColor({ 255, 0, 0, 255 });
         AddComponent(rectangle);
+
+        startButton_ = new Button(Position(100, 100), Dimension(200, 200));
+
+        startButton_->SetColor({ 255, 0, 0, 255 });
+
+        AddComponent(startButton_);
     }
 
     void Leave() override {}
     void HandleEvents(const SDL_Event& evt) override 
     {
         if (evt.type == SDL_MOUSEBUTTONDOWN) {
-            // Here you would typically check if the mouse button down event occurred within
-            // the boundaries of your Button. If it did, you would switch to the GameScreen.
-            // Since the Button class isn't implemented yet, I'm leaving this as a comment.
-            // if (startButton->Contains(evt.button.x, evt.button.y)) {
-            //     Window* window = ...;  // Obtain a pointer to the Window object
-            //     window->SetScreen(new GameScreen());
-            // }
+            if (evt.type == SDL_MOUSEBUTTONDOWN) {
+                int mouseX, mouseY;
+                SDL_GetMouseState(&mouseX, &mouseY);
+
+                startButton_->CheckClick(mouseX, mouseY);
+                
+            }
+
         }
         else if (evt.type == SDL_KEYDOWN) {
             if (evt.key.keysym.sym == SDLK_RETURN) {
@@ -338,6 +374,10 @@ public:
     {
         std::cout << "MenuScreen" << std::endl;
     }
+
+
+private:
+    Button *startButton_;
 };
 
 
