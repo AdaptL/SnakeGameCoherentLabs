@@ -3,7 +3,7 @@
 #include "SDL_ttf.h"
 #include <vector>
 #include <functional>
-
+#include <map>
 
 class Position {
 public:
@@ -13,6 +13,19 @@ public:
     int GetY() const { return y_; }
     void SetX(int x) { x_ = x; }
     void SetY(int y) { y_ = y; }
+
+    bool operator<(const Position& other) const {
+        if (x_ < other.x_) return true;
+        if (x_ > other.x_) return false;
+        if (y_ < other.y_) return true;
+        return false;
+    }
+
+    Position operator*(int factor) const {
+        return Position(x_ * factor, y_ * factor);
+    }
+
+
 
 private:
     int x_;
@@ -42,8 +55,8 @@ public:
 
 class Rectangle : public Component {
 public:
-    Rectangle(Position pos = Position(), Dimension dim = Dimension())
-        : position_(pos), dimension_(dim), color_{ 0, 0, 0, 255 } {}
+    Rectangle(Position pos = Position(), Dimension dim = Dimension(), SDL_Color color = SDL_Color{0, 0, 0, 255} )
+        : position_(pos), dimension_(dim), color_{ color } {}
 
     Position GetPosition() const { return position_; }
     Dimension GetDimension() const { return dimension_; }
@@ -51,7 +64,7 @@ public:
 
     void SetPosition(const Position& pos) { position_ = pos; }
     void SetDimension(const Dimension& dim) { dimension_ = dim; }
-    void SetColor(const SDL_Color& color) { color_ = color; }
+    virtual void SetColor(const SDL_Color& color) { color_ = color; }
 
     void Render(SDL_Renderer* renderer) override {
         SDL_Rect rect{ position_.GetX(), position_.GetY(), dimension_.GetWidth(), dimension_.GetHeight() };
@@ -64,6 +77,192 @@ protected:
     Dimension dimension_;
     SDL_Color color_;
 };
+
+class GridCell : public Rectangle {
+public:
+    GridCell(Position pos, Dimension dim, SDL_Color color, Position gridPos, SDL_Color borderColor, int borderSize)
+        : Rectangle(pos, dim, borderColor), gridPos_(gridPos) {
+        inner_ = new Rectangle(Position(pos.GetX() + borderSize, pos.GetY() + borderSize),
+            Dimension(dim.GetWidth() - 2 * borderSize, dim.GetHeight() - 2 * borderSize),
+            color);
+    }
+
+    ~GridCell() {
+        delete inner_;
+    }
+
+    Position GetGridPosition() const { return gridPos_; }
+    void SetGridPosition(Position pos) { gridPos_ = pos; }
+
+    void SetColor(const SDL_Color& color) override {
+        inner_->SetColor(color);
+    }
+
+    void Render(SDL_Renderer* renderer) override {
+        Rectangle::Render(renderer);
+        inner_->Render(renderer);
+    }
+
+private:
+    Position gridPos_;
+    Rectangle* inner_;
+};
+
+
+
+
+
+class Grid : public Rectangle {
+public:
+    enum CellType {
+        Empty,
+        SnakeBody,
+        SnakeHead,
+        Apple
+    };
+
+public:
+    ~Grid() {
+        for (auto& pair : cells_) {
+            delete pair.second.second; // Delete Rectangle*
+        }
+    }
+
+
+    Grid(Position pos = Position(), Dimension dim = Dimension(), int cellSize = 1)
+        : Rectangle(pos, dim), cellSize_(cellSize) {
+        /* for (int x = 0; x < gridWidth; ++x) {
+         for (int y = 0; y < gridHeight; ++y) {
+             Position cellPos(x * cellSize, y * cellSize);
+             Dimension cellDim(cellSize, cellSize);
+             cells_[cellPos] = std::make_pair(Empty, Rectangle(cellPos, cellDim));
+         }
+     }*/
+        // Initialize the grid
+        gridWidth = dim.GetWidth() / cellSize;
+        gridHeight = dim.GetHeight() / cellSize;
+
+
+    
+
+        int cellWidth = dim.GetWidth() / gridWidth;
+        int cellHeight = dim.GetHeight() / gridHeight;
+        SDL_Color transparent = { 0, 0, 0, 0 };
+
+        this->color_ = transparent;
+
+       /* for (int x = 0; x < gridWidth; ++x) {
+            for (int y = 0; y < gridHeight; ++y) {
+                
+
+
+                Position cellPos(pos.GetX() + x * cellWidth, pos.GetY() + y * cellHeight);
+                Position gridPos(x, y);  // The grid position
+                Dimension cellDim(cellWidth, cellHeight);
+                GridCell* cell = new GridCell(cellPos, cellDim, { 255 , 0, 0 , 255 }, gridPos);
+                cells_[cellPos] = std::make_pair(Empty, cell);
+                posToGrid_[cellPos] = gridPos;
+                gridToPos_[gridPos] = cellPos;
+            }
+        }*/
+        SDL_Color borderColor = { 0, 0, 0, 255 };  // Black
+        int borderSize = 2;  // Adjust as desired
+        for (int x = 0; x < gridWidth; ++x) {
+            for (int y = 0; y < gridHeight; ++y) {
+                Position cellPos(pos.GetX() + x * cellWidth, pos.GetY() + y * cellHeight);
+                Position gridPos(x, y);  // The grid position
+                Dimension cellDim(cellWidth, cellHeight);
+                GridCell* cell = new GridCell(cellPos, cellDim, { 0 , 0, 0 , 255 }, gridPos, borderColor, borderSize);
+                cells_[cellPos] = std::make_pair(Empty, cell);
+                posToGrid_[cellPos] = gridPos;
+                gridToPos_[gridPos] = cellPos;
+            }
+        }
+
+
+    }
+    void AddApple(Position gridPos) {
+
+        SetCellType(gridPos, Grid::Apple);
+    }
+
+    int GetGridWidth() const
+    {
+        return gridWidth;
+    }
+
+    int GetGridHeight() const
+    {
+        return gridHeight;
+    }
+
+
+
+    void SetCellType(Position gridPos, CellType type) {
+        Position pos = GetRelativePosition(gridPos);
+        cells_[pos].first = type;
+        // Set the cell's color based on its type
+        SDL_Color color;
+        switch (type) {
+        case SnakeBody:
+            color = { 0, 255, 0, 255 };  // Green
+            break;
+        case SnakeHead:
+            color = { 0, 0, 255, 255 };  // Blue
+            break;
+        case Apple:
+            color = { 255, 0, 0, 255 };  // Red
+            break;
+        default:
+            color = { 0, 0, 0, 0 };  // Black
+            break;
+        }
+        cells_[pos].second->SetColor(color);
+    }
+
+    void SetCell(Position pos, std::pair<CellType, Rectangle*> cellData) {
+        cells_[pos] = cellData;
+    }
+
+
+    void Render(SDL_Renderer* renderer) override {
+        // Render the grid
+        for (auto& pair : cells_) {
+            pair.second.second->Render(renderer);
+        }
+    }
+    Position GetGridPosition(Position pos) const {
+        auto it = posToGrid_.find(pos);
+        if (it != posToGrid_.end()) {
+            return it->second;
+        }
+        else {
+            // Error handling: position not found in the grid
+            return Position(-1, -1); 
+        }
+    }
+
+    Position GetRelativePosition(Position gridPos) const {
+        auto it = gridToPos_.find(gridPos);
+        if (it != gridToPos_.end()) {
+            return it->second;
+        }
+        else {
+            // Error handling: grid position not found
+            return Position(-1, -1); 
+        }
+    }
+
+
+private:
+    std::map<Position, std::pair<CellType, Rectangle*>> cells_ = std::map<Position, std::pair<CellType, Rectangle*>>();
+    std::map<Position, Position> gridToPos_ = std::map<Position, Position>();
+    std::map<Position, Position> posToGrid_ = std::map<Position, Position>();
+    int gridWidth = 0;
+    int gridHeight = 0;
+    int cellSize_ = 0;
+};
+
 
 class Button : public Rectangle {
 public:
@@ -119,7 +318,7 @@ public:
 
     ~Text() {
         SDL_DestroyTexture(texture_);
-        // TODO: Handle the lifetime of font_, maybe it could be managed outside this class or by using a shared_ptr
+        // TODO: Handle the lifetime of font_
     }
 
 private:
@@ -130,14 +329,14 @@ private:
 
         if (!font_) {
             std::cerr << "No font set for text object.\n";
-            // TODO: Handle the case where font_ is null, maybe throw an exception or provide a default font
+            // TODO: Handle the case where font_ is null
             return;
         }
 
         SDL_Surface* surface = TTF_RenderText_Solid(font_, text_.c_str(), color_);
         if (!surface) {
             std::cerr << "Failed to create text surface.\n";
-            // TODO: Handle this error, maybe throw an exception or attempt to recover
+            // TODO: Handle this error
             return;
         }
 
@@ -145,7 +344,7 @@ private:
 
         if (!texture_) {
             std::cerr << "Failed to create texture from surface.\n";
-            // TODO: Handle this error, maybe throw an exception or attempt to recover
+            // TODO: Handle this error
         }
 
         SDL_FreeSurface(surface);
@@ -208,10 +407,8 @@ protected:
 
 class Window {
 public:
-    Window(const std::string& title = "Snake Game",
-        int width = 800,
-        int height = 600)
-        : window_(nullptr), renderer_(nullptr), currentScreen_(nullptr), width(width), height(height) {
+    Window(const std::string& title = "Snake Game")
+        : window_(nullptr), renderer_(nullptr), currentScreen_(nullptr) {
         // Initialize SDL
         if (SDL_Init(SDL_INIT_VIDEO) < 0) {
             // Handle error...
@@ -272,12 +469,12 @@ public:
         }
     }
 
-    int GetWidth()
+    static int GetWidth() 
     {
         return width;
     }
 
-    int GetHeight()
+    static int GetHeight() 
     {
         return height;
     }
@@ -286,8 +483,8 @@ private:
     SDL_Window* window_;
     SDL_Renderer* renderer_;
     Screen* currentScreen_;
-    int width;
-    int height;
+    static const int width = 800;
+    static const int height = 600;
 };
 
 
@@ -297,11 +494,11 @@ public:
     // Implement the methods from Screen
     void Enter() override {
         // Create a blue rectangle in the top right corner of the screen
-        int topRightX = window_->GetWidth() - 100;
+        /*int topRightX = window_->GetWidth() - 100;
         Rectangle* rectangle = new Rectangle(Position(topRightX, 0), Dimension(100, 100));
         rectangle->SetColor({ 0, 0, 255, 255 });
-        AddComponent(rectangle);
-
+        AddComponent(rectangle);*/
+        /*
         if (TTF_Init() == -1) {
             std::cerr << "SDL_ttf could not initialize! SDL_ttf Error: " << TTF_GetError() << std::endl;
             // Handle the error...
@@ -317,7 +514,38 @@ public:
 
         Text *text = new Text(Position(100, 100), Dimension(100,100), "Hello world!", font);
 
-        AddComponent(text);
+        AddComponent(text);*/
+
+       /* int topRightX = window_->GetWidth() - 100;
+        Rectangle* rectangle = new Rectangle(Position(topRightX, 0), Dimension(100, 100));
+        rectangle->SetColor({ 0, 0, 255, 255 });
+        AddComponent(rectangle);*/
+
+
+        Grid* grid = new Grid(Position(0, 100), Dimension(800, 500), 50);
+
+        Position applePos(1, 1);
+        Position applePos1(0, 1);
+        Position applePos2(1, 0);
+        Position applePos3(0, 0);
+
+        grid->AddApple(applePos);
+        grid->AddApple(applePos1);
+        grid->AddApple(applePos2);
+        grid->AddApple(applePos3);
+
+
+        AddComponent(grid);
+
+
+
+                // Create the snake
+        /*for (int i = 0; i < 3; ++i) {
+            Position snakePos(centerGridX + i, centerGridY);
+            SDL_Color snakeColor = (i == 2) ? SDL_Color{ 0, 255, 0, 255 } : SDL_Color{ 0, 0, 255, 255 };  // Head is green, body is blue
+            Rectangle snakeCell(snakePos * 10, Dimension(10, 10), snakeColor);
+            grid->SetCell(snakePos, std::make_pair((i == 2) ? Grid::CellType::SnakeHead : Grid::CellType::SnakeBody, snakeCell));
+        }*/
 
     }
     void Leave() override {}
@@ -333,7 +561,7 @@ public:
 
 class MenuScreen : public Screen {
 public:
-    // Implement the methods from Screen
+
     void Enter() override {
         // Create a red rectangle in the center of the screen
         int centerX = window_->GetWidth() / 2 - 50;
