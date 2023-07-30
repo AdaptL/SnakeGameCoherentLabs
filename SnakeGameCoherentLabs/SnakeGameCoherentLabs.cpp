@@ -1,5 +1,6 @@
 #include <iostream>
 #include "SDL.h"
+#include "SDL_ttf.h"
 #include <vector>
 
 
@@ -57,11 +58,79 @@ public:
         SDL_RenderFillRect(renderer, &rect);
     }
 
-private:
+protected:
     Position position_;
     Dimension dimension_;
     SDL_Color color_;
 };
+
+class Text : public Rectangle {
+public:
+    Text(Position pos = Position(), Dimension dim = Dimension(), const std::string& text = "", TTF_Font* font = nullptr)
+        : Rectangle(pos, dim), text_(text), font_(font) {
+        color_ = { 150, 150, 150, 150 };  // Default color is white
+        //UpdateTexture();  // TODO: Check if texture creation is successful
+    }
+
+    void SetText(const std::string& text, SDL_Renderer* renderer) {
+        text_ = text;
+        UpdateTexture(renderer);  // TODO: Check if texture creation is successful
+    }
+
+    void Render(SDL_Renderer* renderer) override {
+        if (!isTextureInitialized)
+        {
+            UpdateTexture(renderer);
+            isTextureInitialized = true;
+        }
+
+        SDL_Rect rect{ position_.GetX(), position_.GetY(), dimension_.GetWidth(), dimension_.GetHeight() };
+        SDL_RenderCopy(renderer, texture_, nullptr, &rect);
+    }
+
+    ~Text() {
+        SDL_DestroyTexture(texture_);
+        // TODO: Handle the lifetime of font_, maybe it could be managed outside this class or by using a shared_ptr
+    }
+
+private:
+    void UpdateTexture(SDL_Renderer* renderer) {
+        if (texture_) {
+            SDL_DestroyTexture(texture_);
+        }
+
+        if (!font_) {
+            std::cerr << "No font set for text object.\n";
+            // TODO: Handle the case where font_ is null, maybe throw an exception or provide a default font
+            return;
+        }
+
+        SDL_Surface* surface = TTF_RenderText_Solid(font_, text_.c_str(), color_);
+        if (!surface) {
+            std::cerr << "Failed to create text surface.\n";
+            // TODO: Handle this error, maybe throw an exception or attempt to recover
+            return;
+        }
+
+        texture_ = SDL_CreateTextureFromSurface(renderer, surface);
+
+        if (!texture_) {
+            std::cerr << "Failed to create texture from surface.\n";
+            // TODO: Handle this error, maybe throw an exception or attempt to recover
+        }
+
+        SDL_FreeSurface(surface);
+    }
+
+    std::string text_;
+    TTF_Font* font_;
+    SDL_Texture* texture_ = nullptr;
+    bool isTextureInitialized = false;
+};
+
+
+
+
 
 
 
@@ -203,6 +272,24 @@ public:
         Rectangle* rectangle = new Rectangle(Position(topRightX, 0), Dimension(100, 100));
         rectangle->SetColor({ 0, 0, 255, 255 });
         AddComponent(rectangle);
+
+        if (TTF_Init() == -1) {
+            std::cerr << "SDL_ttf could not initialize! SDL_ttf Error: " << TTF_GetError() << std::endl;
+            // Handle the error...
+        }
+
+
+        TTF_Font* font = TTF_OpenFont("E:\\RpgUnityxCourse\\QT CORE\\QT Beginners\\freedom-font\\Freedom-10eM.ttf", 50);
+        if (!font) {
+            std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+            // Handle the error...
+        }
+
+
+        Text *text = new Text(Position(100, 100), Dimension(100,100), "Hello world!", font);
+
+        AddComponent(text);
+
     }
     void Leave() override {}
     void HandleEvents(const SDL_Event& evt) override {}
