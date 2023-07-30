@@ -4,6 +4,8 @@
 #include <vector>
 #include <functional>
 #include <map>
+#include <deque>
+#include <unordered_set>
 
 class Position {
 public:
@@ -25,7 +27,9 @@ public:
         return Position(x_ * factor, y_ * factor);
     }
 
-
+    Position operator-(const Position& other) const {
+        return Position(x_ - other.x_, y_ - other.y_);
+    }
 
 private:
     int x_;
@@ -131,19 +135,10 @@ public:
 
     Grid(Position pos = Position(), Dimension dim = Dimension(), int cellSize = 1)
         : Rectangle(pos, dim), cellSize_(cellSize) {
-        /* for (int x = 0; x < gridWidth; ++x) {
-         for (int y = 0; y < gridHeight; ++y) {
-             Position cellPos(x * cellSize, y * cellSize);
-             Dimension cellDim(cellSize, cellSize);
-             cells_[cellPos] = std::make_pair(Empty, Rectangle(cellPos, cellDim));
-         }
-     }*/
+
         // Initialize the grid
         gridWidth = dim.GetWidth() / cellSize;
         gridHeight = dim.GetHeight() / cellSize;
-
-
-    
 
         int cellWidth = dim.GetWidth() / gridWidth;
         int cellHeight = dim.GetHeight() / gridHeight;
@@ -151,20 +146,7 @@ public:
 
         this->color_ = transparent;
 
-       /* for (int x = 0; x < gridWidth; ++x) {
-            for (int y = 0; y < gridHeight; ++y) {
-                
 
-
-                Position cellPos(pos.GetX() + x * cellWidth, pos.GetY() + y * cellHeight);
-                Position gridPos(x, y);  // The grid position
-                Dimension cellDim(cellWidth, cellHeight);
-                GridCell* cell = new GridCell(cellPos, cellDim, { 255 , 0, 0 , 255 }, gridPos);
-                cells_[cellPos] = std::make_pair(Empty, cell);
-                posToGrid_[cellPos] = gridPos;
-                gridToPos_[gridPos] = cellPos;
-            }
-        }*/
         SDL_Color borderColor = { 0, 0, 0, 255 };  // Black
         int borderSize = 2;  // Adjust as desired
         for (int x = 0; x < gridWidth; ++x) {
@@ -186,6 +168,12 @@ public:
         SetCellType(gridPos, Grid::Apple);
     }
 
+    CellType GetCellTypeAtCoordinate(Position gridPos)
+    {
+        auto relativePos = GetRelativePosition(gridPos);
+        return cells_[gridPos].first;
+    }
+
     int GetGridWidth() const
     {
         return gridWidth;
@@ -195,6 +183,8 @@ public:
     {
         return gridHeight;
     }
+
+    void DisplaySnake(const Snake& snake);
 
 
 
@@ -262,6 +252,135 @@ private:
     int gridHeight = 0;
     int cellSize_ = 0;
 };
+
+class Snake {
+public:
+    enum Direction {
+        Up,
+        Down,
+        Left,
+        Right
+    };
+
+public:
+    Snake(Grid* grid, Position startingPos = Position(1,1), Direction startingDir = Right)
+        : grid_(grid), direction_(startingDir) {
+        // Starting length is 1
+        bodyPositions_.push_front(startingPos);
+        // Initially set the head on the grid
+        grid_->SetCellType(startingPos, Grid::SnakeHead);
+    }
+
+    void Move(bool ateApple = false) {
+        // Calculate the new head position
+        Position newHeadPos = GetNewHeadPosition();
+
+        // Check if the new position is valid (inside the grid and not colliding with the snake's body)
+        if (!IsValidMove(newHeadPos)) {
+            // Handle game over
+            return;
+        }
+
+        // Add the new head position to the body
+        bodyPositions_.push_front(newHeadPos);
+        occupied_positions_.insert(newHeadPos);
+
+        // If the snake didn't eat an apple, remove the last body segment
+        if (!ateApple) {
+            Position tailPos = bodyPositions_.back();
+            bodyPositions_.pop_back();
+            occupied_positions_.erase(tailPos);
+        }
+
+        // Set the new cell type on the grid
+        grid_->SetCellType(newHeadPos, Grid::SnakeHead);
+    }
+
+    void ClearSnakeFromGrid() {
+        for (const auto& pos : bodyPositions_) {
+            grid_->SetCellType(pos, Grid::Empty);
+        }
+    }
+
+    void AddSnakeToGrid() {
+        // Set all body positions to SnakeBody
+        for (auto it = bodyPositions_.begin() + 1; it != bodyPositions_.end(); ++it) {
+            grid_->SetCellType(*it, Grid::SnakeBody);
+        }
+
+        // Set the head position to SnakeHead
+        if (!bodyPositions_.empty()) {
+            grid_->SetCellType(bodyPositions_.front(), Grid::SnakeHead);
+        }
+    }
+
+    void UpdateDirection(Direction newDirection) {
+        switch (newDirection) {
+        case Up:
+            if (direction_ != Down) {
+                direction_ = newDirection;
+            }
+            break;
+        case Down:
+            if (direction_ != Up) {
+                direction_ = newDirection;
+            }
+            break;
+        case Left:
+            if (direction_ != Right) {
+                direction_ = newDirection;
+            }
+            break;
+        case Right:
+            if (direction_ != Left) {
+                direction_ = newDirection;
+            }
+            break;
+        }
+    }
+
+
+
+
+private:
+    Grid* grid_; // Pointer to the grid the snake is on
+    std::deque<Position> bodyPositions_; // Positions of the snake's body segments
+    Direction direction_; // Current direction of movement
+
+    Position GetNewHeadPosition() {
+        Position currentHeadPos = bodyPositions_.front();
+
+        switch (direction_) {
+        case Up:
+            return Position(currentHeadPos.GetX(), currentHeadPos.GetY() - 1);
+        case Down:
+            return Position(currentHeadPos.GetX(), currentHeadPos.GetY() + 1);
+        case Left:
+            return Position(currentHeadPos.GetX() - 1, currentHeadPos.GetY());
+        case Right:
+            return Position(currentHeadPos.GetX() + 1, currentHeadPos.GetY());
+        }
+    }
+
+    std::unordered_set<Position> occupied_positions_;
+
+    bool IsValidMove(Position newPos) {
+        // Check if position is within the grid
+        if (newPos.GetX() < 0 || newPos.GetX() >= grid_->GetGridWidth() || newPos.GetY() < 0 || newPos.GetY() >= grid_->GetGridHeight()) {
+            return false;
+        }
+
+        // Check if position is occupied by the snake's body
+        if (occupied_positions_.find(newPos) != occupied_positions_.end()) {
+            return false;
+        }
+
+        return true;
+    }
+
+};
+
+
 
 
 class Button : public Rectangle {
@@ -380,6 +499,8 @@ public:
     // Called when leaving the screen
     virtual void Leave() = 0;
 
+    virtual void Update() = 0;
+
     // Handle SDL events
     virtual void HandleEvents(const SDL_Event& evt) = 0;
 
@@ -461,6 +582,18 @@ public:
                     currentScreen_->HandleEvents(evt);
                 }
             }
+            // Inside MainLoop function
+            Uint32 startTick = SDL_GetTicks();
+            if (startTick - lastUpdate > 500) {
+                // It's been more than half a second, move the snake
+                if (currentScreen_) {
+                    currentScreen_->Update();
+                }
+                lastUpdate = startTick;
+            }
+
+
+
            // currentScreen_->PrintScreenName();
             if (currentScreen_) {
                 currentScreen_->Render(renderer_);
@@ -485,6 +618,8 @@ private:
     Screen* currentScreen_;
     static const int width = 800;
     static const int height = 600;
+    Uint32 lastUpdate = 0; // at class scope
+
 };
 
 
@@ -522,9 +657,14 @@ public:
         AddComponent(rectangle);*/
 
 
-        Grid* grid = new Grid(Position(0, 100), Dimension(800, 500), 50);
+        grid = new Grid(Position(0, 100), Dimension(800, 500), 50);
 
-        Position applePos(1, 1);
+        // Inside Enter function
+        snake = new Snake(grid);
+
+
+        AddComponent(grid);
+       /* Position applePos(1, 1);
         Position applePos1(0, 1);
         Position applePos2(1, 0);
         Position applePos3(0, 0);
@@ -532,10 +672,11 @@ public:
         grid->AddApple(applePos);
         grid->AddApple(applePos1);
         grid->AddApple(applePos2);
-        grid->AddApple(applePos3);
+        grid->AddApple(applePos3);*/
 
 
-        AddComponent(grid);
+
+        
 
 
 
@@ -549,13 +690,22 @@ public:
 
     }
     void Leave() override {}
+
+    void Update() override
+    {
+
+    }
+
     void HandleEvents(const SDL_Event& evt) override {}
+
     void PrintScreenName() override
     {
         std::cout << "GameScreen" << std::endl;
     }
 
-
+private:
+    Grid* grid = nullptr;
+    Snake* snake = nullptr;
 };
 
 
@@ -578,6 +728,11 @@ public:
     }
 
     void Leave() override {}
+
+    void Update() override
+    {
+
+    }
     void HandleEvents(const SDL_Event& evt) override 
     {
         if (evt.type == SDL_MOUSEBUTTONDOWN) {
