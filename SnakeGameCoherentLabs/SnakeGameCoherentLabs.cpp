@@ -341,6 +341,8 @@ public:
 
         // Set the new cell type on the grid
         grid_->SetCellType(newHeadPos, Grid::SnakeHead);
+
+        hasMoved_ = true;
     }
 
     void ClearSnakeFromGrid() {
@@ -362,28 +364,35 @@ public:
     }
 
     void UpdateDirection(Direction newDirection) {
-        switch (newDirection) {
-        case Up:
-            if (direction_ != Down) {
-                direction_ = newDirection;
+
+        if (hasMoved_)
+        {
+            switch (newDirection) {
+            case Up:
+                if (direction_ != Down) {
+                    direction_ = newDirection;
+                }
+                break;
+            case Down:
+                if (direction_ != Up) {
+                    direction_ = newDirection;
+                }
+                break;
+            case Left:
+                if (direction_ != Right) {
+                    direction_ = newDirection;
+                }
+                break;
+            case Right:
+                if (direction_ != Left) {
+                    direction_ = newDirection;
+                }
+                break;
             }
-            break;
-        case Down:
-            if (direction_ != Up) {
-                direction_ = newDirection;
-            }
-            break;
-        case Left:
-            if (direction_ != Right) {
-                direction_ = newDirection;
-            }
-            break;
-        case Right:
-            if (direction_ != Left) {
-                direction_ = newDirection;
-            }
-            break;
+            hasMoved_ = false;
         }
+
+        
     }
 
     void IncreaseLength() {
@@ -416,12 +425,17 @@ public:
         }
     }
 
+    bool hasMoved()
+    {
+        return hasMoved_;
+    }
+
 private:
     Grid* grid_; // Pointer to the grid the snake is on
     std::deque<Position> bodyPositions_; // Positions of the snake's body segments
     Direction direction_; // Current direction of movement
     std::unordered_set<Position, PositionHash> occupied_positions_;
-
+    bool hasMoved_ = false;
    
 
 
@@ -505,7 +519,7 @@ class Text : public Rectangle {
 public:
     Text(Position pos = Position(), Dimension dim = Dimension(), const std::string& text = "", TTF_Font* font = nullptr)
         : Rectangle(pos, dim), text_(text), font_(font) {
-        color_ = { 144, 238, 150, 255 };  // Default color is white
+        color_ = { 0, 255, 0, 255 };  // Default color is white
         //UpdateTexture();  // TODO: Check if texture creation is successful
     }
 
@@ -721,14 +735,15 @@ public:
         }
 
 
-        TTF_Font* font = TTF_OpenFont("E:\\RpgUnityxCourse\\QT CORE\\QT Beginners\\freedom-font\\Freedom-10eM.ttf", 50);
+        TTF_Font* font = TTF_OpenFont("E:\\RpgUnityxCourse\\QT CORE\\QT Beginners\\super-legend-boy-font\\SuperLegendBoy-4w8Y.ttf", 45);
+       
         if (!font) {
             std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
             // Handle the error...
         }
 
 
-        Text *text = new Text(Position(0, 0), Dimension(250,50), "Apples eaten : 0", font);
+        Text *text = new Text(Position(0, 25), Dimension(250,50), "Apples eaten : 0", font);
 
         AddComponent(text);
 
@@ -759,14 +774,13 @@ public:
 
     }
     void Leave() override {}
-
     void Update() override
     {
         Uint32 currentTime = SDL_GetTicks();
         bool appleEaten = false;
         // Check if at least 500 ms (half a second) has passed since last update
-        if (currentTime - lastSnakeMoveTime_ >= 190) {
-            
+        if (currentTime - lastSnakeMoveTime_ >= snakeMoveInterval_) {
+
             snake->ClearSnakeFromGrid();
 
             auto snakeNewPos = snake->GetNextHeadPosition();
@@ -775,7 +789,7 @@ public:
             {
                 appleEaten = true;
                 apple->ClearApple();
-                
+
             }
 
             snake->Move(appleEaten);
@@ -784,15 +798,30 @@ public:
             if (appleEaten)
             {
                 apple->SpawnApple();
+
+                applesEaten_++;
+
+                if (applesEaten_ == 1 || applesEaten_ == 4)
+                {
+                    snakeMoveInterval_ *= 0.8;
+                }
+                else if (applesEaten_ == 10)
+                {
+                    snakeMoveInterval_ *= 0.9;
+                }
+
+
                 appleEaten = false;
             }
-            
 
-            
+
+
 
             lastSnakeMoveTime_ = currentTime;
         }
     }
+
+
 
     void HandleEvents(const SDL_Event& evt) override {
         if (evt.type == SDL_KEYDOWN) {
@@ -824,7 +853,8 @@ private:
     Snake* snake = nullptr;
     Apple* apple = nullptr;
     Uint32 lastSnakeMoveTime_ = 0;
-
+    Uint32 snakeMoveInterval_ = 210;
+    int applesEaten_ = 0;
 };
 
 
