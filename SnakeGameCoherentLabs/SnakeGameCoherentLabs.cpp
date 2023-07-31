@@ -6,6 +6,8 @@
 #include <map>
 #include <deque>
 #include <unordered_set>
+#include <cstdlib> 
+
 
 class Position {
 public:
@@ -31,9 +33,19 @@ public:
         return Position(x_ - other.x_, y_ - other.y_);
     }
 
+    bool operator==(const Position& other) const {
+        return x_ == other.x_ && y_ == other.y_;
+    }
+
 private:
     int x_;
     int y_;
+};
+
+struct PositionHash {
+    std::size_t operator() (const Position& pos) const {
+        return std::hash<int>()(pos.GetX()) ^ std::hash<int>()(pos.GetY());
+    }
 };
 
 class Dimension {
@@ -163,15 +175,12 @@ public:
 
 
     }
-    void AddApple(Position gridPos) {
 
-        SetCellType(gridPos, Grid::Apple);
-    }
 
     CellType GetCellTypeAtCoordinate(Position gridPos)
     {
         auto relativePos = GetRelativePosition(gridPos);
-        return cells_[gridPos].first;
+        return cells_[relativePos].first;
     }
 
     int GetGridWidth() const
@@ -183,8 +192,6 @@ public:
     {
         return gridHeight;
     }
-
-    void DisplaySnake(const Snake& snake);
 
 
 
@@ -198,7 +205,7 @@ public:
             color = { 0, 255, 0, 255 };  // Green
             break;
         case SnakeHead:
-            color = { 0, 0, 255, 255 };  // Blue
+            color = { 50, 50, 100, 255 };  // Blue
             break;
         case Apple:
             color = { 255, 0, 0, 255 };  // Red
@@ -208,10 +215,6 @@ public:
             break;
         }
         cells_[pos].second->SetColor(color);
-    }
-
-    void SetCell(Position pos, std::pair<CellType, Rectangle*> cellData) {
-        cells_[pos] = cellData;
     }
 
 
@@ -227,6 +230,7 @@ public:
             return it->second;
         }
         else {
+            std::cout << "what " << pos.GetX() << "," << pos.GetY() << std::endl;
             // Error handling: position not found in the grid
             return Position(-1, -1); 
         }
@@ -241,6 +245,27 @@ public:
             // Error handling: grid position not found
             return Position(-1, -1); 
         }
+    }
+    Position GetRandomEmptyPosition() {
+        std::vector<Position> emptyPositions;
+
+        for (const auto& pair : cells_) {
+            if (pair.second.first == CellType::Empty) {
+                emptyPositions.push_back(pair.first);
+            }
+        }
+
+        if (emptyPositions.empty()) {
+            // Error handling: there are no empty positions on the grid
+            throw std::runtime_error("No empty positions on the grid.");
+        }
+
+        // Generate a random index
+        int randomIndex = std::rand() % (emptyPositions.size() - 1);
+
+        std::cout << randomIndex << " " << GetGridPosition(emptyPositions[randomIndex]).GetX() << "," << GetGridPosition(emptyPositions[randomIndex]).GetY() << std::endl;
+             
+        return GetGridPosition(emptyPositions[randomIndex]);
     }
 
 
@@ -273,11 +298,13 @@ public:
 
     void Move(bool ateApple = false) {
         // Calculate the new head position
-        Position newHeadPos = GetNewHeadPosition();
+        Position newHeadPos = GetNextHeadPosition();
 
         // Check if the new position is valid (inside the grid and not colliding with the snake's body)
         if (!IsValidMove(newHeadPos)) {
             // Handle game over
+
+            std::cout << "Collision! Game over" << std::endl;
             return;
         }
 
@@ -291,6 +318,7 @@ public:
             bodyPositions_.pop_back();
             occupied_positions_.erase(tailPos);
         }
+    
 
         // Set the new cell type on the grid
         grid_->SetCellType(newHeadPos, Grid::SnakeHead);
@@ -339,15 +367,22 @@ public:
         }
     }
 
+    void IncreaseLength() {
+        // Calculate new head position
+        Position newHead = GetNextHeadPosition();
 
+        // Check if the new head position is within the grid and not occupied
+       // if (grid_->IsWithinGrid(newHead) && !IsOccupied(newHead)) {
+            // Add new head to the front of bodyPositions_
+            bodyPositions_.push_front(newHead);
+            // Also add the new position to the set of occupied positions
+            occupied_positions_.insert(newHead);
+            // Don't remove the last body segment, causing the snake to grow in length
+        //}
+        // If the new head position is not within the grid or is occupied, do nothing
+    }
 
-
-private:
-    Grid* grid_; // Pointer to the grid the snake is on
-    std::deque<Position> bodyPositions_; // Positions of the snake's body segments
-    Direction direction_; // Current direction of movement
-
-    Position GetNewHeadPosition() {
+    Position GetNextHeadPosition() {
         Position currentHeadPos = bodyPositions_.front();
 
         switch (direction_) {
@@ -362,7 +397,15 @@ private:
         }
     }
 
-    std::unordered_set<Position> occupied_positions_;
+private:
+    Grid* grid_; // Pointer to the grid the snake is on
+    std::deque<Position> bodyPositions_; // Positions of the snake's body segments
+    Direction direction_; // Current direction of movement
+    std::unordered_set<Position, PositionHash> occupied_positions_;
+
+   
+
+
 
     bool IsValidMove(Position newPos) {
         // Check if position is within the grid
@@ -378,6 +421,34 @@ private:
         return true;
     }
 
+};
+
+class Apple {
+public:
+    Apple(Grid* grid) : grid_(grid) {
+        SpawnApple();
+    }
+
+    void ClearApple() {
+        grid_->SetCellType(applePosition_, Grid::CellType::Empty);
+    }
+
+    void SpawnApple() {
+        // We need to ensure that the apple is spawned at a random position within the grid
+        // and not on a position currently occupied by the snake. 
+        // Assuming the Grid class has a method GetRandomEmptyPosition() that guarantees this.
+
+        applePosition_ = grid_->GetRandomEmptyPosition();
+        grid_->SetCellType(applePosition_, Grid::CellType::Apple);
+    }
+
+    Position GetPosition() {
+        return applePosition_;
+    }
+
+private:
+    Grid* grid_;
+    Position applePosition_;
 };
 
 
@@ -415,7 +486,7 @@ class Text : public Rectangle {
 public:
     Text(Position pos = Position(), Dimension dim = Dimension(), const std::string& text = "", TTF_Font* font = nullptr)
         : Rectangle(pos, dim), text_(text), font_(font) {
-        color_ = { 150, 150, 150, 150 };  // Default color is white
+        color_ = { 144, 238, 150, 255 };  // Default color is white
         //UpdateTexture();  // TODO: Check if texture creation is successful
     }
 
@@ -582,15 +653,8 @@ public:
                     currentScreen_->HandleEvents(evt);
                 }
             }
-            // Inside MainLoop function
-            Uint32 startTick = SDL_GetTicks();
-            if (startTick - lastUpdate > 500) {
-                // It's been more than half a second, move the snake
-                if (currentScreen_) {
-                    currentScreen_->Update();
-                }
-                lastUpdate = startTick;
-            }
+
+            currentScreen_->Update();
 
 
 
@@ -618,8 +682,6 @@ private:
     Screen* currentScreen_;
     static const int width = 800;
     static const int height = 600;
-    Uint32 lastUpdate = 0; // at class scope
-
 };
 
 
@@ -633,7 +695,7 @@ public:
         Rectangle* rectangle = new Rectangle(Position(topRightX, 0), Dimension(100, 100));
         rectangle->SetColor({ 0, 0, 255, 255 });
         AddComponent(rectangle);*/
-        /*
+        
         if (TTF_Init() == -1) {
             std::cerr << "SDL_ttf could not initialize! SDL_ttf Error: " << TTF_GetError() << std::endl;
             // Handle the error...
@@ -647,9 +709,9 @@ public:
         }
 
 
-        Text *text = new Text(Position(100, 100), Dimension(100,100), "Hello world!", font);
+        Text *text = new Text(Position(0, 0), Dimension(250,50), "Apples eaten : 0", font);
 
-        AddComponent(text);*/
+        AddComponent(text);
 
        /* int topRightX = window_->GetWidth() - 100;
         Rectangle* rectangle = new Rectangle(Position(topRightX, 0), Dimension(100, 100));
@@ -662,41 +724,76 @@ public:
         // Inside Enter function
         snake = new Snake(grid);
 
+        apple = new Apple(grid);
+
+        snake->IncreaseLength();
+        snake->IncreaseLength();
+        snake->IncreaseLength();
+
 
         AddComponent(grid);
-       /* Position applePos(1, 1);
-        Position applePos1(0, 1);
-        Position applePos2(1, 0);
-        Position applePos3(0, 0);
-
-        grid->AddApple(applePos);
-        grid->AddApple(applePos1);
-        grid->AddApple(applePos2);
-        grid->AddApple(applePos3);*/
 
 
 
-        
 
-
-
-                // Create the snake
-        /*for (int i = 0; i < 3; ++i) {
-            Position snakePos(centerGridX + i, centerGridY);
-            SDL_Color snakeColor = (i == 2) ? SDL_Color{ 0, 255, 0, 255 } : SDL_Color{ 0, 0, 255, 255 };  // Head is green, body is blue
-            Rectangle snakeCell(snakePos * 10, Dimension(10, 10), snakeColor);
-            grid->SetCell(snakePos, std::make_pair((i == 2) ? Grid::CellType::SnakeHead : Grid::CellType::SnakeBody, snakeCell));
-        }*/
+     
 
     }
     void Leave() override {}
 
     void Update() override
     {
+        Uint32 currentTime = SDL_GetTicks();
+        bool appleEaten = false;
+        // Check if at least 500 ms (half a second) has passed since last update
+        if (currentTime - lastSnakeMoveTime_ >= 190) {
+            
+            snake->ClearSnakeFromGrid();
 
+            auto snakeNewPos = snake->GetNextHeadPosition();
+
+            if (grid->GetCellTypeAtCoordinate(snakeNewPos) == Grid::CellType::Apple)
+            {
+                appleEaten = true;
+                apple->ClearApple();
+                
+            }
+
+            snake->Move(appleEaten);
+            snake->AddSnakeToGrid();
+
+            if (appleEaten)
+            {
+                apple->SpawnApple();
+                appleEaten = false;
+            }
+            
+
+            
+
+            lastSnakeMoveTime_ = currentTime;
+        }
     }
 
-    void HandleEvents(const SDL_Event& evt) override {}
+    void HandleEvents(const SDL_Event& evt) override {
+        if (evt.type == SDL_KEYDOWN) {
+            switch (evt.key.keysym.sym) {
+            case SDLK_UP:
+                snake->UpdateDirection(Snake::Direction::Up);
+                break;
+            case SDLK_DOWN:
+                snake->UpdateDirection(Snake::Direction::Down);
+                break;
+            case SDLK_LEFT:
+                snake->UpdateDirection(Snake::Direction::Left);
+                break;
+            case SDLK_RIGHT:
+                snake->UpdateDirection(Snake::Direction::Right);
+                break;
+            }
+        }
+    }
+
 
     void PrintScreenName() override
     {
@@ -706,6 +803,9 @@ public:
 private:
     Grid* grid = nullptr;
     Snake* snake = nullptr;
+    Apple* apple = nullptr;
+    Uint32 lastSnakeMoveTime_ = 0;
+
 };
 
 
@@ -773,6 +873,8 @@ private:
 
 int main(int argc, char* argv[])
 {
+    std::srand(std::time(nullptr));
+
     Window window;
     MenuScreen menuScreen;
 
