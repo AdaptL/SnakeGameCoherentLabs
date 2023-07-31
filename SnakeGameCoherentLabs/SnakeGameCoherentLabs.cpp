@@ -7,6 +7,10 @@
 #include <deque>
 #include <unordered_set>
 #include <cstdlib> 
+#include <string>
+#include <ostream>
+#include <iomanip>
+#include <sstream>
 
 
 class Position {
@@ -523,9 +527,11 @@ public:
         //UpdateTexture();  // TODO: Check if texture creation is successful
     }
 
+
     void SetText(const std::string& text, SDL_Renderer* renderer) {
         text_ = text;
         UpdateTexture(renderer);  // TODO: Check if texture creation is successful
+        
     }
 
     void Render(SDL_Renderer* renderer) override {
@@ -544,7 +550,7 @@ public:
         // TODO: Handle the lifetime of font_
     }
 
-private:
+protected:
     void UpdateTexture(SDL_Renderer* renderer) {
         if (texture_) {
             SDL_DestroyTexture(texture_);
@@ -580,6 +586,63 @@ private:
 };
 
 
+
+class TextCounter : public Text {
+public:
+    TextCounter(Position pos = Position(), Dimension dim = Dimension(), TTF_Font* font = nullptr, SDL_Renderer* renderer = nullptr)
+        : Text(pos, dim, "0", font), renderer_(renderer), count_(0) {}
+
+    void Increment() {
+        ++count_;
+        SetText(initialText_ + std::to_string(count_), renderer_);
+    }
+
+    void Decrement() {
+        if (count_ > 0) {
+            --count_;
+            SetText(initialText_ + std::to_string(count_), renderer_);
+        }
+    }
+
+
+
+private:
+    int count_;
+    std::string initialText_;
+    SDL_Renderer* renderer_;
+};
+
+
+class Timer : public Text {
+public:
+    Timer(Position pos = Position(), Dimension dim = Dimension(), TTF_Font* font = nullptr, SDL_Renderer* renderer = nullptr)
+        : Text(pos, dim, "00:00", font), renderer_(renderer), lastUpdateTime_(SDL_GetTicks()), seconds_(0), minutes_(0) {}
+
+    void Update() {
+        Uint32 current_time = SDL_GetTicks();
+        if (current_time > lastUpdateTime_ + 1000) { // 1000 milliseconds = 1 second
+            ++seconds_;
+            if (seconds_ >= 60) {
+                ++minutes_;
+                seconds_ = 0;
+            }
+            SetText(GetFormattedTime(), renderer_);
+            lastUpdateTime_ = current_time;
+        }
+    }
+
+private:
+    std::string GetFormattedTime() const {
+        std::ostringstream oss;
+        oss << std::setw(2) << std::setfill('0') << minutes_ << ":" << std::setw(2) << std::setfill('0') << seconds_;
+        return oss.str();
+    }
+
+    Uint32 lastUpdateTime_;
+    int seconds_;
+    int minutes_;
+    SDL_Renderer* renderer_;
+};
 
 
 
@@ -670,6 +733,11 @@ public:
         }
     }
 
+    SDL_Renderer* GetRenderer()
+    {
+        return renderer_;
+    }
+
     void MainLoop() {
         bool running = true;
         while (running) {
@@ -743,10 +811,24 @@ public:
         }
 
 
-        Text *text = new Text(Position(0, 25), Dimension(250,50), "Apples eaten : 0", font);
+        Text *counterText = new Text(Position(35, 25), Dimension(250,50), "Apples eaten :", font);
 
-        AddComponent(text);
+        appleCounter = new TextCounter(Position(295, 35), Dimension(40, 40), font, window_->GetRenderer());
+        
 
+
+        Text* timerText = new Text(Position(400, 25), Dimension(250, 50), "Time passed :", font);
+
+        gameTimer = new Timer(Position(660, 27), Dimension(100, 50), font, window_->GetRenderer());
+
+
+        timerText->SetColor({ 50, 50, 100, 255 });
+        gameTimer->SetColor({ 50, 50, 100, 255 });
+
+        AddComponent(appleCounter);
+        AddComponent(gameTimer);
+        AddComponent(counterText);
+        AddComponent(timerText);
        /* int topRightX = window_->GetWidth() - 100;
         Rectangle* rectangle = new Rectangle(Position(topRightX, 0), Dimension(100, 100));
         rectangle->SetColor({ 0, 0, 255, 255 });
@@ -779,6 +861,8 @@ public:
         Uint32 currentTime = SDL_GetTicks();
         bool appleEaten = false;
         // Check if at least 500 ms (half a second) has passed since last update
+        gameTimer->Update();
+
         if (currentTime - lastSnakeMoveTime_ >= snakeMoveInterval_) {
 
             snake->ClearSnakeFromGrid();
@@ -800,6 +884,8 @@ public:
                 apple->SpawnApple();
 
                 applesEaten_++;
+
+                appleCounter->Increment();
 
                 if (applesEaten_ == 1 || applesEaten_ == 4)
                 {
@@ -854,6 +940,8 @@ private:
     Apple* apple = nullptr;
     Uint32 lastSnakeMoveTime_ = 0;
     Uint32 snakeMoveInterval_ = 210;
+    Timer* gameTimer = nullptr;
+    TextCounter* appleCounter = nullptr;
     int applesEaten_ = 0;
 };
 
