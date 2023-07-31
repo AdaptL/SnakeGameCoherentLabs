@@ -223,6 +223,25 @@ public:
         for (auto& pair : cells_) {
             pair.second.second->Render(renderer);
         }
+        /*todo extract*/
+
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);  // Green
+
+    // Draw a dashed border around the grid
+        int dashLength = 10;  // Length of dashes
+        int gapLength = 10;  // Length of gaps between dashes
+
+        // Horizontal borders (top and bottom)
+        for (int x = position_.GetX(); x < position_.GetX() + dimension_.GetWidth(); x += dashLength + gapLength) {
+            SDL_RenderDrawLine(renderer, x, position_.GetY(), std::min(x + dashLength, position_.GetX() + dimension_.GetWidth()), position_.GetY());  // Top border
+            SDL_RenderDrawLine(renderer, x, position_.GetY() + dimension_.GetHeight() - 1, std::min(x + dashLength, position_.GetX() + dimension_.GetWidth()), position_.GetY() + dimension_.GetHeight() - 1);  // Bottom border
+        }
+
+        // Vertical borders (left and right)
+        for (int y = position_.GetY(); y < position_.GetY() + dimension_.GetHeight(); y += dashLength + gapLength) {
+            SDL_RenderDrawLine(renderer, position_.GetX(), y, position_.GetX(), std::min(y + dashLength, position_.GetY() + dimension_.GetHeight()));  // Left border
+            SDL_RenderDrawLine(renderer, position_.GetX() + dimension_.GetWidth() - 1, y, position_.GetX() + dimension_.GetWidth() - 1, std::min(y + dashLength, position_.GetY() + dimension_.GetHeight()));  // Right border
+        }
     }
     Position GetGridPosition(Position pos) const {
         auto it = posToGrid_.find(pos);
