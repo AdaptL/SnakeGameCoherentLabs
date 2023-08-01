@@ -1047,6 +1047,7 @@ public:
     {
         if (newHighScore >= GetHighscore() && newHighScore > oldHighScore_)
         {
+            oldHighScore_ = newHighScore;
             return true;
         }
         return false;
