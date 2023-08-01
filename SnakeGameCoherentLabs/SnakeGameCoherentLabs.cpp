@@ -11,6 +11,8 @@
 #include <ostream>
 #include <iomanip>
 #include <sstream>
+#include <fstream>
+#include <ostream>
 
 
 class Position {
@@ -197,6 +199,16 @@ public:
         return gridHeight;
     }
 
+    void ClearGrid()
+    {
+        for (int i = 0; i < GetGridWidth(); ++i)
+        {
+            for (int j = 0; j < GetGridHeight(); ++j)
+            {
+                SetCellType(Position(i, j), CellType::Empty);
+            }
+        }
+    }
 
 
     void SetCellType(Position gridPos, CellType type) {
@@ -218,14 +230,23 @@ public:
             color = { 0, 0, 0, 0 };  // Black
             break;
         }
-        cells_[pos].second->SetColor(color);
+        if (cells_[pos].second != nullptr)
+        {
+            cells_[pos].second->SetColor(color);
+        }
+
+       
     }
 
 
     void Render(SDL_Renderer* renderer) override {
         // Render the grid
         for (auto& pair : cells_) {
-            pair.second.second->Render(renderer);
+            if (pair.second.second != nullptr)
+            {
+                pair.second.second->Render(renderer);
+            }
+            
         }
         /*todo extract*/
 
@@ -253,8 +274,7 @@ public:
             return it->second;
         }
         else {
-            std::cout << "what " << pos.GetX() << "," << pos.GetY() << std::endl;
-            // Error handling: position not found in the grid
+
             return Position(-1, -1); 
         }
     }
@@ -311,15 +331,23 @@ public:
     };
 
 public:
-    Snake(Grid* grid, Position startingPos = Position(1,1), Direction startingDir = Right)
+    Snake(Grid* grid, Position startingPos = Position(3,3), Direction startingDir = Right)
         : grid_(grid), direction_(startingDir) {
         // Starting length is 1
+        startingPos_ = startingPos;
+
         bodyPositions_.push_front(startingPos);
+
         // Initially set the head on the grid
         grid_->SetCellType(startingPos, Grid::SnakeHead);
     }
 
-    void Move(bool ateApple = false) {
+    bool hasCollided()
+    {
+        return hasCollided_;
+    }
+
+    bool Move(bool ateApple = false) {
         // Calculate the new head position
         Position newHeadPos = GetNextHeadPosition();
 
@@ -328,7 +356,9 @@ public:
             // Handle game over
 
             std::cout << "Collision! Game over" << std::endl;
-            return;
+
+            hasCollided_ = true;
+            return false;
         }
 
         // Add the new head position to the body
@@ -347,9 +377,12 @@ public:
         grid_->SetCellType(newHeadPos, Grid::SnakeHead);
 
         hasMoved_ = true;
+
+        return true;
     }
 
     void ClearSnakeFromGrid() {
+
         for (const auto& pos : bodyPositions_) {
             grid_->SetCellType(pos, Grid::Empty);
         }
@@ -357,6 +390,7 @@ public:
 
     void AddSnakeToGrid() {
         // Set all body positions to SnakeBody
+
         for (auto it = bodyPositions_.begin() + 1; it != bodyPositions_.end(); ++it) {
             grid_->SetCellType(*it, Grid::SnakeBody);
         }
@@ -365,6 +399,27 @@ public:
         if (!bodyPositions_.empty()) {
             grid_->SetCellType(bodyPositions_.front(), Grid::SnakeHead);
         }
+        
+        
+    }
+
+    void RestartSnake()
+    {
+        hasCollided_ = false;
+        hasMoved_ = true;
+
+        bodyPositions_.clear();
+        occupied_positions_.clear();
+
+        direction_ = Direction::Right;
+        bodyPositions_.push_front(startingPos_);
+
+        grid_->SetCellType(startingPos_, Grid::SnakeHead);
+
+        IncreaseLength();
+        IncreaseLength();
+
+        
     }
 
     void UpdateDirection(Direction newDirection) {
@@ -402,19 +457,23 @@ public:
     void IncreaseLength() {
         // Calculate new head position
         Position newHead = GetNextHeadPosition();
+        bool isWithinGrid = (newHead.GetX() >= 0 || newHead.GetX() < grid_->GetGridWidth()) && (newHead.GetY() >= 0 || newHead.GetY() < grid_->GetGridHeight());
+     //   auto isOccupied = occupied_positions_.find(newHead) != occupied_positions_.end();
 
         // Check if the new head position is within the grid and not occupied
-       // if (grid_->IsWithinGrid(newHead) && !IsOccupied(newHead)) {
+        if (isWithinGrid) {
             // Add new head to the front of bodyPositions_
             bodyPositions_.push_front(newHead);
             // Also add the new position to the set of occupied positions
             occupied_positions_.insert(newHead);
             // Don't remove the last body segment, causing the snake to grow in length
-        //}
+        }
         // If the new head position is not within the grid or is occupied, do nothing
     }
 
     Position GetNextHeadPosition() {
+       
+
         Position currentHeadPos = bodyPositions_.front();
 
         switch (direction_) {
@@ -440,11 +499,17 @@ private:
     Direction direction_; // Current direction of movement
     std::unordered_set<Position, PositionHash> occupied_positions_;
     bool hasMoved_ = false;
-   
-
+    bool hasCollided_ = false;
+    Position startingPos_;
 
 
     bool IsValidMove(Position newPos) {
+
+        if (hasCollided_)
+        {
+            return true;
+        }
+
         // Check if position is within the grid
         if (newPos.GetX() < 0 || newPos.GetX() >= grid_->GetGridWidth() || newPos.GetY() < 0 || newPos.GetY() >= grid_->GetGridHeight()) {
             return false;
@@ -463,7 +528,6 @@ private:
 class Apple {
 public:
     Apple(Grid* grid) : grid_(grid) {
-        SpawnApple();
     }
 
     void ClearApple() {
@@ -471,9 +535,7 @@ public:
     }
 
     void SpawnApple() {
-        // We need to ensure that the apple is spawned at a random position within the grid
-        // and not on a position currently occupied by the snake. 
-        // Assuming the Grid class has a method GetRandomEmptyPosition() that guarantees this.
+
 
         applePosition_ = grid_->GetRandomEmptyPosition();
         grid_->SetCellType(applePosition_, Grid::CellType::Apple);
@@ -488,37 +550,6 @@ private:
     Position applePosition_;
 };
 
-
-
-
-class Button : public Rectangle {
-public:
-    using Callback = std::function<void()>;
-
-    Button(Position pos = Position(), Dimension dim = Dimension(), Callback callback = nullptr)
-        : Rectangle(pos, dim), callback_(callback) {}
-
-    void OnClick() {
-
-        std::cout << "You clicked!" << std::endl;
-        if (callback_) {
-            callback_();
-        }
-    }
-
-    void CheckClick(int mouseX, int mouseY) {
-        if (mouseX >= position_.GetX() && mouseX <= position_.GetX() + dimension_.GetWidth() &&
-            mouseY >= position_.GetY() && mouseY <= position_.GetY() + dimension_.GetHeight()) {
-            OnClick();
-        }
-    }
-
-private:
-    Callback callback_;
-};
-
-
-
 class Text : public Rectangle {
 public:
     Text(Position pos = Position(), Dimension dim = Dimension(), const std::string& text = "", TTF_Font* font = nullptr)
@@ -531,7 +562,7 @@ public:
     void SetText(const std::string& text, SDL_Renderer* renderer) {
         text_ = text;
         UpdateTexture(renderer);  // TODO: Check if texture creation is successful
-        
+
     }
 
     void Render(SDL_Renderer* renderer) override {
@@ -587,6 +618,62 @@ protected:
 
 
 
+class Button : public Rectangle {
+public:
+    using Callback = std::function<void()>;
+
+    Button(Position pos = Position(), Dimension dim = Dimension(), Callback callback = nullptr, TTF_Font* font = nullptr, const std::string& text = "")
+        : Rectangle(pos, dim), callback_(callback) {
+
+
+        Position textPos = Position(pos.GetX() + (dim.GetWidth()/4), pos.GetY() + (dim.GetHeight() / 4));
+        Dimension textDim = Dimension(dim.GetWidth() /2 , dim.GetHeight() / 2);
+        text_ = Text(textPos, textDim, text, font);
+        color_ = { 0, 255, 0, 255 };  // Green border color
+        text_.SetColor({ 0, 255, 0, 255 });  // Green text color
+    }
+
+
+    void OnClick() {
+        std::cout << "You clicked!" << std::endl;
+        if (callback_) {
+            callback_();
+        }
+    }
+
+    void CheckClick(int mouseX, int mouseY) {
+        if (mouseX >= position_.GetX() && mouseX <= position_.GetX() + dimension_.GetWidth() &&
+            mouseY >= position_.GetY() && mouseY <= position_.GetY() + dimension_.GetHeight()) {
+            OnClick();
+        }
+    }
+
+    void Render(SDL_Renderer* renderer) override {
+        SDL_Rect rect{ position_.GetX(), position_.GetY(), dimension_.GetWidth(), dimension_.GetHeight() };
+
+        // Render black filled rectangle
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderFillRect(renderer, &rect);
+
+        // Render green border
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+        SDL_RenderDrawRect(renderer, &rect);
+
+        // Render text
+        text_.Render(renderer);
+    }
+
+private:
+    Callback callback_;
+    Text text_;
+};
+
+
+
+
+
+
+
 class TextCounter : public Text {
 public:
     TextCounter(Position pos = Position(), Dimension dim = Dimension(), TTF_Font* font = nullptr, SDL_Renderer* renderer = nullptr)
@@ -604,7 +691,17 @@ public:
         }
     }
 
+    int GetCounter()
+    {
+        return count_;
+    }
 
+    void Reset()
+    {
+        count_ = 0;
+        SetText(initialText_ + std::to_string(count_), renderer_);
+        Render(renderer_);
+    }
 
 private:
     int count_;
@@ -629,6 +726,13 @@ public:
             SetText(GetFormattedTime(), renderer_);
             lastUpdateTime_ = current_time;
         }
+    }
+
+    void Reset()
+    {
+        seconds_ = 0;
+        minutes_ = 0;
+        Render(renderer_);
     }
 
 private:
@@ -785,6 +889,160 @@ private:
     static const int height = 600;
 };
 
+class Stats : public Component {
+public:
+    Stats(SDL_Renderer* renderer, TTF_Font* font) : renderer_(renderer), font_(font) {
+
+        counterText_ = new Text(Position(35, 25), Dimension(250, 50), "Apples eaten :", font);
+        appleCounter_ = new TextCounter(Position(295, 35), Dimension(40, 40), font, renderer);
+
+        timerText_ = new Text(Position(400, 25), Dimension(250, 50), "Time passed :", font);
+        gameTimer_ = new Timer(Position(660, 27), Dimension(100, 50), font, renderer);
+
+        timerText_->SetColor({ 50, 50, 100, 255 });
+        gameTimer_->SetColor({ 50, 50, 100, 255 });
+
+
+        LoadHighscore();
+    }
+
+    ~Stats() {
+        delete counterText_;
+        delete appleCounter_;
+        delete timerText_;
+        delete gameTimer_;
+    }
+
+    void IncreaseAppleCount() {
+        appleCounter_->Increment();
+    }
+
+    void UpdateTimer() {
+        gameTimer_->Update();
+    }
+
+    void ResetTimer()
+    {
+        gameTimer_->Reset();
+    }
+
+    void ResetAppleCounter()
+    {
+        appleCounter_->Reset();
+    }
+
+    void CheckHighscore() {
+        if (appleCounter_->GetCounter() > highscore_) {
+            highscore_ = appleCounter_->GetCounter();
+            SaveHighscore();
+        }
+    }
+
+    void Render(SDL_Renderer* renderer) override {
+        counterText_->Render(renderer);
+        appleCounter_->Render(renderer);
+        timerText_->Render(renderer);
+        gameTimer_->Render(renderer);
+    }
+
+    static int GetHighscore() {
+        std::ifstream highscoreFile("highscore.txt");
+        int highscore;
+        if (highscoreFile.is_open()) {
+            highscoreFile >> highscore;
+        }
+        else {
+            // File not found, so highscore is 0
+            highscore = 0;
+        }
+        highscoreFile.close();
+        return highscore;
+    }
+
+    static bool NewHighScore()
+    {
+        if (oldHighScore_ < GetHighscore())
+        {
+            return true;
+        }
+        return false;
+    }
+
+private:
+    void LoadHighscore() {
+        std::ifstream file("highscore.txt");
+
+        if (file.is_open()) {
+            file >> highscore_;
+        }
+        else {
+            highscore_ = 0;
+            SaveHighscore();  // Creates the file if it doesn't exist
+        }
+    }
+
+    void SaveHighscore() {
+        std::ofstream file("highscore.txt");
+        if (file.is_open()) {
+            file << highscore_;
+        }
+    }
+
+    int highscore_;
+    const static int oldHighScore_ = 0;
+    Text* counterText_;
+    TextCounter* appleCounter_;
+    Text* timerText_;
+    Timer* gameTimer_;
+    SDL_Renderer* renderer_;
+    TTF_Font* font_;
+};
+
+class GameOver : public Component {
+public:
+    GameOver(TTF_Font* font, SDL_Renderer* renderer)
+        : gameOverText_(Position(110, 200), Dimension(600, 75), "Game Over", font),
+        highScoreText_(Position(260, 290), Dimension(300, 40), "", font),
+        restartButton_(Position(300, 350), Dimension(200, 50), nullptr, font, "Restart"),
+        background_(Position(2, 102), Dimension(796,496), {0, 0, 0, 255}) ,
+        font_(font),
+        renderer_(renderer) {}
+
+    void Render(SDL_Renderer* renderer) override {
+        if (gameOver_) {
+            background_.Render(renderer);
+            gameOverText_.Render(renderer);
+            if (Stats::NewHighScore()) {
+                highScoreText_.SetText("New high score: " + std::to_string(Stats::GetHighscore()), renderer);
+                highScoreText_.Render(renderer);
+            }
+            restartButton_.Render(renderer);
+        }
+    }
+
+    void CheckClick(int mouseX, int mouseY) {
+        if (gameOver_) {
+            restartButton_.CheckClick(mouseX, mouseY);
+        }
+    }
+
+    void StartGameOver() {
+        gameOver_ = true;
+    }
+
+    void StopGameOver() {
+        gameOver_ = false;
+    }
+
+private:
+    bool gameOver_ = false;
+    Text gameOverText_;
+    Text highScoreText_;
+    Button restartButton_;
+    Rectangle background_;
+    TTF_Font* font_;
+    SDL_Renderer* renderer_;
+};
 
 
 class GameScreen : public Screen {
@@ -797,21 +1055,31 @@ public:
         rectangle->SetColor({ 0, 0, 255, 255 });
         AddComponent(rectangle);*/
         
+
+        /*getcurrenthighest score*/
+
         if (TTF_Init() == -1) {
             std::cerr << "SDL_ttf could not initialize! SDL_ttf Error: " << TTF_GetError() << std::endl;
-            // Handle the error...
+      
         }
 
 
-        TTF_Font* font = TTF_OpenFont("E:\\RpgUnityxCourse\\QT CORE\\QT Beginners\\super-legend-boy-font\\SuperLegendBoy-4w8Y.ttf", 45);
+        font = TTF_OpenFont("E:\\RpgUnityxCourse\\QT CORE\\QT Beginners\\super-legend-boy-font\\SuperLegendBoy-4w8Y.ttf", 45);
        
         if (!font) {
             std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
-            // Handle the error...
+  
         }
 
+        stats = new Stats(window_->GetRenderer(), font);
 
-        Text *counterText = new Text(Position(35, 25), Dimension(250,50), "Apples eaten :", font);
+
+        AddComponent(stats);
+
+        
+
+
+       /* Text* counterText = new Text(Position(35, 25), Dimension(250, 50), "Apples eaten :", font);
 
         appleCounter = new TextCounter(Position(295, 35), Dimension(40, 40), font, window_->GetRenderer());
         
@@ -828,7 +1096,7 @@ public:
         AddComponent(appleCounter);
         AddComponent(gameTimer);
         AddComponent(counterText);
-        AddComponent(timerText);
+        AddComponent(timerText);*/
        /* int topRightX = window_->GetWidth() - 100;
         Rectangle* rectangle = new Rectangle(Position(topRightX, 0), Dimension(100, 100));
         rectangle->SetColor({ 0, 0, 255, 255 });
@@ -842,26 +1110,39 @@ public:
 
         apple = new Apple(grid);
 
-        snake->IncreaseLength();
+
+
         snake->IncreaseLength();
         snake->IncreaseLength();
 
+
+
+        apple->SpawnApple();
 
         AddComponent(grid);
 
-
-
-
-     
-
     }
     void Leave() override {}
+
+    void RestartGame()
+    {
+        gameOver = false;
+        /*clear up old snake, clear up it's space*/
+        /*init snake again*/
+    }
     void Update() override
     {
+        if (gameOver)
+        {
+            return;
+        }
+
+
         Uint32 currentTime = SDL_GetTicks();
         bool appleEaten = false;
-        // Check if at least 500 ms (half a second) has passed since last update
-        gameTimer->Update();
+       // gameTimer->Update();
+
+        stats->UpdateTimer();
 
         if (currentTime - lastSnakeMoveTime_ >= snakeMoveInterval_) {
 
@@ -876,7 +1157,29 @@ public:
 
             }
 
-            snake->Move(appleEaten);
+
+            if (!snake->Move(appleEaten))
+            {
+                gameOver = true;
+
+                gameOverUI = new GameOver(font, window_->GetRenderer());
+
+                gameOverUI->StartGameOver();
+
+                AddComponent(gameOverUI);
+
+                /*check if the apple counter is more than the last best highscore, if it is save it*/
+
+
+                std::cout << "old highscore " << stats->GetHighscore() << std::endl;
+
+                stats->CheckHighscore();
+
+                std::cout << "new highscore " << stats->GetHighscore() << std::endl;
+                return;
+            }
+
+
             snake->AddSnakeToGrid();
 
             if (appleEaten)
@@ -885,7 +1188,8 @@ public:
 
                 applesEaten_++;
 
-                appleCounter->Increment();
+                stats->IncreaseAppleCount();
+
 
                 if (applesEaten_ == 1 || applesEaten_ == 4)
                 {
@@ -899,10 +1203,6 @@ public:
 
                 appleEaten = false;
             }
-
-
-
-
             lastSnakeMoveTime_ = currentTime;
         }
     }
@@ -926,6 +1226,39 @@ public:
                 break;
             }
         }
+        else if (evt.type == SDL_MOUSEBUTTONDOWN) {
+            // If the game is over, check if the restart button is clicked
+            if (gameOver) {
+                if (gameOverUI != nullptr)
+                {
+
+                    gameOverUI->CheckClick(evt.button.x, evt.button.y);
+
+                    Restart();
+
+                }
+            }
+        }
+    }
+
+    void Restart()
+    {
+ 
+      //  grid->ClearGrid();
+
+        snakeMoveInterval_ = 210;
+
+        applesEaten_ = 0;
+
+        gameOverUI->StopGameOver();
+
+        stats->ResetAppleCounter();
+        stats->ResetTimer();
+
+        snake->RestartSnake();
+
+
+        gameOver = false;
     }
 
 
@@ -938,11 +1271,16 @@ private:
     Grid* grid = nullptr;
     Snake* snake = nullptr;
     Apple* apple = nullptr;
+    GameOver* gameOverUI = nullptr;
+    TTF_Font* font = nullptr;
+
     Uint32 lastSnakeMoveTime_ = 0;
     Uint32 snakeMoveInterval_ = 210;
-    Timer* gameTimer = nullptr;
-    TextCounter* appleCounter = nullptr;
+   // Timer* gameTimer = nullptr;
+   // TextCounter* appleCounter = nullptr;
+    Stats* stats = nullptr;
     int applesEaten_ = 0;
+    bool gameOver = false;
 };
 
 
