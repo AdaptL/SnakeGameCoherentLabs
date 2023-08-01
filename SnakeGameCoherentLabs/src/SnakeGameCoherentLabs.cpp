@@ -16,14 +16,8 @@
 #include <filesystem>
 #include "SDL_image.h"
 
-static const std::string  FONT_PATH      = "..\\resources\\Fonts\\super-legend-boy-font\\SuperLegendBoy-4w8Y.ttf";
-static const std::string  IMAGE_PATH     = "..\\resources\\images\\snake_image.png";
-
-
-
-static const std::string FONT_PATH_EXE = (std::filesystem::current_path() / "resources" / "Fonts" / "super-legend-boy-font" / "SuperLegendBoy-4w8Y.ttf").string();
-static const std::string IMAGE_PATH_EXE = (std::filesystem::current_path() / "resources" / "Images" / "snake_image.png").string();
-
+static const char* FONT_PATH = "..\\src\\Fonts\\super-legend-boy-font\\SuperLegendBoy-4w8Y.ttf";
+static const char* IMAGE_PATH = "..\\src\\images\\snake_image.png";
 
 class Position {
 public:
@@ -33,7 +27,6 @@ public:
     int GetY() const { return y_; }
     void SetX(int x) { x_ = x; }
     void SetY(int y) { y_ = y; }
-
 
     bool operator<(const Position& other) const {
         if (x_ < other.x_) return true;
@@ -118,15 +111,8 @@ public:
 
         SDL_Surface* loadedSurface = IMG_Load(imagePath_.c_str());
         if (loadedSurface == nullptr) {
-
-            loadedSurface = IMG_Load(IMAGE_PATH_EXE.c_str());
-            if (loadedSurface == nullptr)
-            {
-                std::cerr << "Failed to load image. SDL_image Error: " << IMG_GetError() << std::endl;
-                return;
-            }
-            
-            
+            std::cerr << "Failed to load image. SDL_image Error: " << IMG_GetError() << std::endl;
+            return;
         }
 
         texture_ = SDL_CreateTextureFromSurface(renderer_, loadedSurface);
@@ -1166,17 +1152,11 @@ public:
 
 
 
-        font = TTF_OpenFont(FONT_PATH.c_str(), 45);
+        font = TTF_OpenFont(FONT_PATH, 45);
        
         if (!font) {
-
+            std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
   
-            font = TTF_OpenFont(FONT_PATH_EXE.c_str(), 45);
-            if (!font)
-            {
-                std::cerr << "Failed to load font! SDL_ttf Error: " << TTF_GetError() << std::endl;
-                return;
-            }
         }
 
         stats = new Stats(window_->GetRenderer(), font);
@@ -1455,16 +1435,10 @@ public:
 
 
         // Load font
-        TTF_Font* font = TTF_OpenFont(FONT_PATH.c_str(), 28);  // Replace path_to_font.ttf with path to your .ttf file
+        TTF_Font* font = TTF_OpenFont(FONT_PATH, 28);  // Replace path_to_font.ttf with path to your .ttf file
         if (!font) {
-
-            font = TTF_OpenFont(FONT_PATH_EXE.c_str(), 28);
-            if (!font)
-            {
-                std::cerr << "Failed to load font! SDL_ttf Error: " << TTF_GetError() << std::endl;
-                return;
-            }
-            
+            std::cerr << "Failed to load font! SDL_ttf Error: " << TTF_GetError() << std::endl;
+            return;
         }
 
 
@@ -1496,13 +1470,13 @@ public:
             }
             
         }
-       /* else if (evt.type == SDL_KEYDOWN) {
+        else if (evt.type == SDL_KEYDOWN) {
             if (evt.key.keysym.sym == SDLK_RETURN) {
                 if (window_) {
                     window_->SetScreen(new GameScreen());
                 }
             }
-        }*/
+        }
 
     }
     void PrintScreenName() override
