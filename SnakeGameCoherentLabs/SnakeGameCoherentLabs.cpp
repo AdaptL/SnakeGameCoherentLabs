@@ -25,7 +25,7 @@ static const std::string FONT_PATH_EXE = (std::filesystem::current_path() / "res
 static const std::string IMAGE_PATH_EXE = (std::filesystem::current_path() / "resources" / "Images" / "snake_image.png").string();
 
 
-class Position {
+/*class Position {
 public:
     Position(int x = 0, int y = 0) : x_(x), y_(y) {}
 
@@ -269,7 +269,11 @@ public:
             }
         }
     }
-    /*to fix a bug*/
+
+
+    /*
+
+
     bool AppleExists()
     {
         for (int i = 0; i < GetGridWidth(); ++i)
@@ -323,7 +327,6 @@ public:
             }
             
         }
-        /*todo extract*/
 
         SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);  // Green
 
@@ -1159,7 +1162,7 @@ public:
         
 
         /*getcurrenthighest score*/
-
+        /*
         if (TTF_Init() == -1) {
             std::cerr << "SDL_ttf could not initialize! SDL_ttf Error: " << TTF_GetError() << std::endl;
       
@@ -1211,7 +1214,8 @@ public:
         rectangle->SetColor({ 0, 0, 255, 255 });
         AddComponent(rectangle);*/
 
-
+        /*
+         
         grid = new Grid(Position(0, 100), Dimension(800, 500), 50);
 
         // Inside Enter function
@@ -1243,6 +1247,8 @@ public:
         gameOver = false;
         /*clear up old snake, clear up it's space*/
         /*init snake again*/
+
+        /*
     }
     void Update() override
     {
@@ -1504,7 +1510,7 @@ public:
                 }
             }
         }*/
-
+    /*
     }
     void PrintScreenName() override
     {
@@ -1519,7 +1525,7 @@ private:
 
 
 
-
+*/
 
 
 
@@ -1529,12 +1535,12 @@ int main(int argc, char* argv[])
     std::srand(std::time(nullptr));
     std::cout << "Current path is " << std::filesystem::current_path() << '\n';
 
-    Window window;
-    MenuScreen menuScreen;
+  //  Window window;
+  //  MenuScreen menuScreen;
 
 
-    window.SetScreen(&menuScreen);
-    window.MainLoop();
+ //   window.SetScreen(&menuScreen);
+ //window.MainLoop();
 
     return 0;
 }

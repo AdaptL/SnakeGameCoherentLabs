@@ -147,7 +147,49 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Apple.cpp" />
+    <ClCompile Include="Button.cpp" />
+    <ClCompile Include="Component.cpp" />
+    <ClCompile Include="Dimension.cpp" />
+    <ClCompile Include="GameOver.cpp" />
+    <ClCompile Include="GameScreen.cpp" />
+    <ClCompile Include="Grid.cpp" />
+    <ClCompile Include="GridCell.cpp" />
+    <ClCompile Include="Image.cpp" />
+    <ClCompile Include="MenuScreen.cpp" />
+    <ClCompile Include="MenuUI.cpp" />
+    <ClCompile Include="Position.cpp" />
+    <ClCompile Include="Rectangle.cpp" />
+    <ClCompile Include="Screen.cpp" />
+    <ClCompile Include="Snake.cpp" />
     <ClCompile Include="SnakeGameCoherentLabs.cpp" />
+    <ClCompile Include="Stats.cpp" />
+    <ClCompile Include="Text.cpp" />
+    <ClCompile Include="TextCounter.cpp" />
+    <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="Window.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Apple.h" />
+    <ClInclude Include="Button.h" />
+    <ClInclude Include="Component.h" />
+    <ClInclude Include="Dimension.h" />
+    <ClInclude Include="GameOver.h" />
+    <ClInclude Include="GameScreen.h" />
+    <ClInclude Include="Grid.h" />
+    <ClInclude Include="GridCell.h" />
+    <ClInclude Include="Image.h" />
+    <ClInclude Include="MenuScreen.h" />
+    <ClInclude Include="MenuUI.h" />
+    <ClInclude Include="Position.h" />
+    <ClInclude Include="Rectangle.h" />
+    <ClInclude Include="Screen.h" />
+    <ClInclude Include="Snake.h" />
+    <ClInclude Include="Stats.h" />
+    <ClInclude Include="Text.h" />
+    <ClInclude Include="TextCounter.h" />
+    <ClInclude Include="Timer.h" />
+    <ClInclude Include="Window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
