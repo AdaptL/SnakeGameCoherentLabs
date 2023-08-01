@@ -1,6 +1,6 @@
 #include <iostream>
-#include "SDL.h"
-#include "SDL_ttf.h"
+#include <SDL.h>
+#include <SDL_ttf.h>
 #include <vector>
 #include <functional>
 #include <map>
@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include <ostream>
+#include "SDL_image.h"
 
 
 class Position {
@@ -99,6 +100,48 @@ protected:
     Dimension dimension_;
     SDL_Color color_;
 };
+
+class Image : public Rectangle {
+public:
+    Image(Position pos = Position(), Dimension dim = Dimension(), const std::string& imagePath = "", SDL_Renderer* renderer = nullptr, float size = 1)
+        : Rectangle(pos, dim), imagePath_(imagePath), renderer_(renderer), size_(size) {
+
+        SDL_Surface* loadedSurface = IMG_Load(imagePath_.c_str());
+        if (loadedSurface == nullptr) {
+            std::cerr << "Failed to load image. SDL_image Error: " << IMG_GetError() << std::endl;
+            return;
+        }
+
+        texture_ = SDL_CreateTextureFromSurface(renderer_, loadedSurface);
+        if (texture_ == nullptr) {
+            std::cerr << "Failed to create texture from loaded image. SDL Error: " << SDL_GetError() << std::endl;
+        }
+
+        SDL_FreeSurface(loadedSurface);
+    }
+
+    void Render(SDL_Renderer* renderer) override {
+
+        dimension_.SetWidth(static_cast<int>(dimension_.GetWidth() * size_));
+        dimension_.SetHeight(static_cast<int>(dimension_.GetHeight() * size_));
+
+        SDL_Rect rect{ position_.GetX(), position_.GetY(), dimension_.GetWidth(), dimension_.GetHeight() };
+        SDL_RenderCopy(renderer, texture_, nullptr, &rect);
+    }
+
+    ~Image() {
+        // Deallocate texture
+        SDL_DestroyTexture(texture_);
+        texture_ = nullptr;
+    }
+
+private:
+    std::string imagePath_;
+    SDL_Renderer* renderer_;
+    SDL_Texture* texture_ = nullptr;
+    float size_;
+};
+
 
 class GridCell : public Rectangle {
 public:
@@ -641,10 +684,11 @@ public:
         }
     }
 
-    void CheckClick(int mouseX, int mouseY) {
+    bool CheckClick(int mouseX, int mouseY) {
         if (mouseX >= position_.GetX() && mouseX <= position_.GetX() + dimension_.GetWidth() &&
             mouseY >= position_.GetY() && mouseY <= position_.GetY() + dimension_.GetHeight()) {
             OnClick();
+            return true;
         }
     }
 
@@ -904,6 +948,8 @@ public:
 
 
         LoadHighscore();
+
+        oldHighScore_ = highscore_;
     }
 
     ~Stats() {
@@ -929,6 +975,12 @@ public:
     void ResetAppleCounter()
     {
         appleCounter_->Reset();
+    }
+
+
+    int GetAppleCount()
+    {
+        return appleCounter_->GetCounter();
     }
 
     void CheckHighscore() {
@@ -959,9 +1011,9 @@ public:
         return highscore;
     }
 
-    static bool NewHighScore()
+    static bool NewHighScore(int newHighScore)
     {
-        if (oldHighScore_ < GetHighscore())
+        if (newHighScore >= GetHighscore() && newHighScore > oldHighScore_)
         {
             return true;
         }
@@ -974,6 +1026,7 @@ private:
 
         if (file.is_open()) {
             file >> highscore_;
+
         }
         else {
             highscore_ = 0;
@@ -989,7 +1042,7 @@ private:
     }
 
     int highscore_;
-    const static int oldHighScore_ = 0;
+    static int oldHighScore_;
     Text* counterText_;
     TextCounter* appleCounter_;
     Text* timerText_;
@@ -997,6 +1050,7 @@ private:
     SDL_Renderer* renderer_;
     TTF_Font* font_;
 };
+int Stats::oldHighScore_ = 0;
 
 class GameOver : public Component {
 public:
@@ -1004,7 +1058,7 @@ public:
         : gameOverText_(Position(110, 200), Dimension(600, 75), "Game Over", font),
         highScoreText_(Position(260, 290), Dimension(300, 40), "", font),
         restartButton_(Position(300, 350), Dimension(200, 50), nullptr, font, "Restart"),
-        background_(Position(2, 102), Dimension(796,496), {0, 0, 0, 255}) ,
+        background_(Position(2, 102), Dimension(796, 496), { 0, 0, 0, 255 }),
         font_(font),
         renderer_(renderer) {}
 
@@ -1012,8 +1066,13 @@ public:
         if (gameOver_) {
             background_.Render(renderer);
             gameOverText_.Render(renderer);
-            if (Stats::NewHighScore()) {
+            if (Stats::NewHighScore(GetHighScore())) {
                 highScoreText_.SetText("New high score: " + std::to_string(Stats::GetHighscore()), renderer);
+                highScoreText_.Render(renderer);
+            }
+            else
+            {
+                highScoreText_.SetText("Score: " + std::to_string(GetHighScore()), renderer);
                 highScoreText_.Render(renderer);
             }
             restartButton_.Render(renderer);
@@ -1034,8 +1093,18 @@ public:
         gameOver_ = false;
     }
 
+    void SetHighScore(int highScore)
+    {
+        highScore_ = highScore;
+    }
+
+    int GetHighScore()
+    {
+        return highScore_;
+    }
 private:
     bool gameOver_ = false;
+    int  highScore_ = 0;
     Text gameOverText_;
     Text highScoreText_;
     Button restartButton_;
@@ -1160,22 +1229,23 @@ public:
 
             if (!snake->Move(appleEaten))
             {
+                
+
+
+                stats->CheckHighscore();
+
+
                 gameOver = true;
 
                 gameOverUI = new GameOver(font, window_->GetRenderer());
 
                 gameOverUI->StartGameOver();
 
+                gameOverUI->SetHighScore(stats->GetAppleCount());
+
                 AddComponent(gameOverUI);
 
-                /*check if the apple counter is more than the last best highscore, if it is save it*/
 
-
-                std::cout << "old highscore " << stats->GetHighscore() << std::endl;
-
-                stats->CheckHighscore();
-
-                std::cout << "new highscore " << stats->GetHighscore() << std::endl;
                 return;
             }
 
@@ -1234,6 +1304,9 @@ public:
 
                     gameOverUI->CheckClick(evt.button.x, evt.button.y);
 
+
+
+
                     Restart();
 
                 }
@@ -1250,6 +1323,9 @@ public:
 
         applesEaten_ = 0;
 
+        apple->ClearApple();
+        applesEaten_ = false;
+
         gameOverUI->StopGameOver();
 
         stats->ResetAppleCounter();
@@ -1257,6 +1333,8 @@ public:
 
         snake->RestartSnake();
 
+
+        apple->SpawnApple();
 
         gameOver = false;
     }
@@ -1282,6 +1360,38 @@ private:
     int applesEaten_ = 0;
     bool gameOver = false;
 };
+class MenuUI : public Component {
+public:
+    MenuUI(TTF_Font* font, SDL_Renderer* renderer, const std::string& imagePath)
+        : title_(Position(90, 100), Dimension(600, 150), "Snake", font),
+        createdByText_(Position(210, 250), Dimension(400, 40), "Created by Viktor Chochkov for Coherent Labs", font),
+        startButton_(Position(270, 350), Dimension(250, 75), nullptr, font, "Start"),
+        snakeImage_(Position(690, 133), Dimension(90, 90), imagePath, renderer),
+        renderer_(renderer) {
+        // Set green color for texts
+        title_.SetColor({ 0, 255, 0, 255 });
+        createdByText_.SetColor({ 50, 50, 100, 255 });
+
+    }
+
+    void Render(SDL_Renderer* renderer) override {
+        title_.Render(renderer);
+        createdByText_.Render(renderer);
+        startButton_.Render(renderer);
+        snakeImage_.Render(renderer);
+    }
+
+    bool CheckClick(int mouseX, int mouseY) {
+        return startButton_.CheckClick(mouseX, mouseY);
+    }
+
+private:
+    Text title_;
+    Text createdByText_;
+    Button startButton_;
+    Image snakeImage_;
+    SDL_Renderer* renderer_;
+};
 
 
 class MenuScreen : public Screen {
@@ -1289,17 +1399,26 @@ public:
 
     void Enter() override {
         // Create a red rectangle in the center of the screen
-        int centerX = window_->GetWidth() / 2 - 50;
-        int centerY = window_->GetHeight() / 2 - 50;
-        Rectangle* rectangle = new Rectangle(Position(centerX, centerY), Dimension(100, 100));
-        rectangle->SetColor({ 255, 0, 0, 255 });
-        AddComponent(rectangle);
+        if (TTF_Init() == -1) {
+            std::cerr << "SDL_ttf could not initialize! SDL_ttf Error: " << TTF_GetError() << std::endl;
+            return;
+        }
 
-        startButton_ = new Button(Position(100, 100), Dimension(200, 200));
+        // Load font
+        TTF_Font* font = TTF_OpenFont("E:\\RpgUnityxCourse\\QT CORE\\QT Beginners\\super-legend-boy-font\\SuperLegendBoy-4w8Y.ttf", 28);  // Replace path_to_font.ttf with path to your .ttf file
+        if (!font) {
+            std::cerr << "Failed to load font! SDL_ttf Error: " << TTF_GetError() << std::endl;
+            return;
+        }
 
-        startButton_->SetColor({ 255, 0, 0, 255 });
 
-        AddComponent(startButton_);
+
+
+
+        // Initialize MenuUI
+        menuUI = new MenuUI(font, window_->GetRenderer(), "C:\\Users\\USeR\\source\\repos\\SnakeGameCoherentLabs\\Resources\\Images\\snake_image.png");
+
+        AddComponent(menuUI);
     }
 
     void Leave() override {}
@@ -1308,17 +1427,18 @@ public:
     {
 
     }
-    void HandleEvents(const SDL_Event& evt) override 
+    void HandleEvents(const SDL_Event& evt) override
     {
+
         if (evt.type == SDL_MOUSEBUTTONDOWN) {
-            if (evt.type == SDL_MOUSEBUTTONDOWN) {
-                int mouseX, mouseY;
-                SDL_GetMouseState(&mouseX, &mouseY);
+            int mouseX, mouseY;
+            SDL_GetMouseState(&mouseX, &mouseY);
 
-                startButton_->CheckClick(mouseX, mouseY);
-                
+            if (menuUI->CheckClick(mouseX, mouseY))
+            {
+                window_->SetScreen(new GameScreen());
             }
-
+            
         }
         else if (evt.type == SDL_KEYDOWN) {
             if (evt.key.keysym.sym == SDLK_RETURN) {
@@ -1327,6 +1447,7 @@ public:
                 }
             }
         }
+
     }
     void PrintScreenName() override
     {
@@ -1335,7 +1456,7 @@ public:
 
 
 private:
-    Button *startButton_;
+    MenuUI* menuUI;
 };
 
 
