@@ -1,4 +1,6 @@
 #include "Window.h"
+#include <SDL_ttf.h>
+#include <SDL_image.h>
 
 Window::Window(const std::string& title)
     : window_(nullptr), renderer_(nullptr), currentScreen_(nullptr) {
@@ -22,6 +24,12 @@ Window::~Window() {
     SDL_DestroyRenderer(renderer_);
     SDL_DestroyWindow(window_);
     SDL_Quit();
+
+
+    TTF_Quit();
+
+    IMG_Quit();
+
 }
 
 void Window::SetScreen(Screen* screen) {

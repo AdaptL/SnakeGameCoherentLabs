@@ -184,6 +184,14 @@ void GameScreen::RestartGame()
     
 }
 
+GameScreen::~GameScreen()
+{
+    delete grid;
+    delete apple;
+    delete gameOverUI;
+    delete font;
+}
+
 void GameScreen::Restart()
 {
     //  grid->ClearGrid();

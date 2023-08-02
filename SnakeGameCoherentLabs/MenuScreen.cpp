@@ -44,3 +44,5 @@ void MenuScreen::HandleEvents(const SDL_Event& evt) {
 void MenuScreen::PrintScreenName() {
     std::cout << "MenuScreen" << std::endl;
 }
+
+MenuScreen::~MenuScreen() {}

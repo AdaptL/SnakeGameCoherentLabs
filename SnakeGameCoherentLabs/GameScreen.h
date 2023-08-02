@@ -20,6 +20,7 @@ public:
     void HandleEvents(const SDL_Event& evt) override;
     void PrintScreenName() override;
     void RestartGame();
+    ~GameScreen();
 
 private:
     void Restart();

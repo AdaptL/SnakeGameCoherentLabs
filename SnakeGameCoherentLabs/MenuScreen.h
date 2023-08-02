@@ -13,7 +13,7 @@ public:
     void Update() override;
     void HandleEvents(const SDL_Event& evt) override;
     void PrintScreenName() override;
-
+    ~MenuScreen();
 private:
     MenuUI* menuUI;
 };

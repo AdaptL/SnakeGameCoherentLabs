@@ -6,6 +6,10 @@ Text::Text(Position pos, Dimension dim, const std::string& text, TTF_Font* font)
     color_ = { 0, 255, 0, 255 };
 }
 
+Text::~Text() {
+    SDL_DestroyTexture(texture_);
+}
+
 void Text::SetText(const std::string& text, SDL_Renderer* renderer) {
     text_ = text;
     UpdateTexture(renderer);
@@ -21,9 +25,6 @@ void Text::Render(SDL_Renderer* renderer) {
     SDL_RenderCopy(renderer, texture_, nullptr, &rect);
 }
 
-Text::~Text() {
-    SDL_DestroyTexture(texture_);
-}
 
 void Text::UpdateTexture(SDL_Renderer* renderer) {
     if (texture_) {

@@ -2,7 +2,8 @@
 
 Screen::~Screen() {
     for (auto component : components_) {
-        delete component;
+        if(component!=nullptr)
+             delete component;
     }
     components_.clear();
 }
