@@ -181,6 +181,7 @@
     <ClInclude Include="Image.h" />
     <ClInclude Include="MenuScreen.h" />
     <ClInclude Include="MenuUI.h" />
+    <ClInclude Include="Paths.h" />
     <ClInclude Include="Position.h" />
     <ClInclude Include="Rectangle.h" />
     <ClInclude Include="Screen.h" />

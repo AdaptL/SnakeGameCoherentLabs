@@ -1,10 +1,12 @@
 Snake Game Project
-Description
-This is a simple Snake Game implemented in C++ for CoherentLabs technical assigment. The game uses the Simple DirectMedia Layer (SDL) library, SDL_ttf for font rendering, and SDL_image for image manipulation.
+
+This is a simple Snake Game implemented in C++ for CoherentLabs technical assigment. The game uses the Simple DirectMedia Layer (SDL) library, SDL_ttf for font rendering and SDL_image for image manipulation.
 
 System Requirements
 Operating System: Windows x64
 Compiler: Visual Studio 2022 (64 bit)
+
+
 Dependencies
 SDL2
 SDL2_ttf
@@ -16,6 +18,8 @@ Clone the repository.
 bash
 Copy code
 git clone <repo_url>
+
+
 Open the project in Visual Studio 2022.
 
 Set to the "x64" configuration.

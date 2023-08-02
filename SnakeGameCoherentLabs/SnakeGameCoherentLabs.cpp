@@ -15,9 +15,10 @@
 #include <ostream>
 #include <filesystem>
 #include "SDL_image.h"
-
-static const std::string  FONT_PATH      = "..\\resources\\Fonts\\super-legend-boy-font\\SuperLegendBoy-4w8Y.ttf";
-static const std::string  IMAGE_PATH     = "..\\resources\\images\\snake_image.png";
+#include "Window.h"
+#include "MenuScreen.h"
+/*static const std::string  FONT_PATH = "..\\resources\\Fonts\\super-legend-boy-font\\SuperLegendBoy-4w8Y.ttf";
+static const std::string  IMAGE_PATH = "..\\resources\\images\\snake_image.png";
 
 
 
@@ -25,7 +26,8 @@ static const std::string FONT_PATH_EXE = (std::filesystem::current_path() / "res
 static const std::string IMAGE_PATH_EXE = (std::filesystem::current_path() / "resources" / "Images" / "snake_image.png").string();
 
 
-/*class Position {
+
+class Position {
 public:
     Position(int x = 0, int y = 0) : x_(x), y_(y) {}
 
@@ -271,7 +273,7 @@ public:
     }
 
 
-    /*
+    
 
 
     bool AppleExists()
@@ -632,14 +634,12 @@ class Text : public Rectangle {
 public:
     Text(Position pos = Position(), Dimension dim = Dimension(), const std::string& text = "", TTF_Font* font = nullptr)
         : Rectangle(pos, dim), text_(text), font_(font) {
-        color_ = { 0, 255, 0, 255 };  // Default color is white
-        //UpdateTexture();  // TODO: Check if texture creation is successful
+        color_ = { 0, 255, 0, 255 };  
     }
-
 
     void SetText(const std::string& text, SDL_Renderer* renderer) {
         text_ = text;
-        UpdateTexture(renderer);  // TODO: Check if texture creation is successful
+        UpdateTexture(renderer); 
 
     }
 
@@ -656,7 +656,6 @@ public:
 
     ~Text() {
         SDL_DestroyTexture(texture_);
-        // TODO: Handle the lifetime of font_
     }
 
 protected:
@@ -667,14 +666,12 @@ protected:
 
         if (!font_) {
             std::cerr << "No font set for text object.\n";
-            // TODO: Handle the case where font_ is null
             return;
         }
 
         SDL_Surface* surface = TTF_RenderText_Solid(font_, text_.c_str(), color_);
         if (!surface) {
             std::cerr << "Failed to create text surface.\n";
-            // TODO: Handle this error
             return;
         }
 
@@ -682,7 +679,6 @@ protected:
 
         if (!texture_) {
             std::cerr << "Failed to create texture from surface.\n";
-            // TODO: Handle this error
         }
 
         SDL_FreeSurface(surface);
@@ -707,8 +703,8 @@ public:
         Position textPos = Position(pos.GetX() + (dim.GetWidth()/4), pos.GetY() + (dim.GetHeight() / 4));
         Dimension textDim = Dimension(dim.GetWidth() /2 , dim.GetHeight() / 2);
         text_ = Text(textPos, textDim, text, font);
-        color_ = { 0, 255, 0, 255 };  // Green border color
-        text_.SetColor({ 0, 255, 0, 255 });  // Green text color
+        color_ = { 0, 255, 0, 255 };  
+        text_.SetColor({ 0, 255, 0, 255 });  
     }
 
 
@@ -730,15 +726,14 @@ public:
     void Render(SDL_Renderer* renderer) override {
         SDL_Rect rect{ position_.GetX(), position_.GetY(), dimension_.GetWidth(), dimension_.GetHeight() };
 
-        // Render black filled rectangle
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderFillRect(renderer, &rect);
 
-        // Render green border
+
         SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
         SDL_RenderDrawRect(renderer, &rect);
 
-        // Render text
+
         text_.Render(renderer);
     }
 
@@ -796,7 +791,7 @@ public:
 
     void Update() {
         Uint32 current_time = SDL_GetTicks();
-        if (current_time > lastUpdateTime_ + 1000) { // 1000 milliseconds = 1 second
+        if (current_time > lastUpdateTime_ + 1000) { 
             ++seconds_;
             if (seconds_ >= 60) {
                 ++minutes_;
@@ -843,20 +838,16 @@ public:
         components_.clear();
     }
 
-    // Called when entering the screen
     virtual void Enter() = 0;
 
-    // Called when leaving the screen
     virtual void Leave() = 0;
 
     virtual void Update() = 0;
 
-    // Handle SDL events
     virtual void HandleEvents(const SDL_Event& evt) = 0;
 
     virtual void PrintScreenName() = 0;
 
-    // Render the screen's content
     virtual void Render(SDL_Renderer* renderer) {
         for (auto component : components_) {
             component->Render(renderer);
@@ -880,22 +871,19 @@ class Window {
 public:
     Window(const std::string& title = "Snake Game")
         : window_(nullptr), renderer_(nullptr), currentScreen_(nullptr) {
-        // Initialize SDL
         if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-            // Handle error...
+
         }
 
-        // Create the window
         window_ = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
             SDL_WINDOWPOS_CENTERED, width, height, 0);
         if (!window_) {
-            // Handle error...
+
         }
 
-        // Create the renderer
         renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED);
         if (!renderer_) {
-            // Handle error...
+
         }
     }
 
@@ -924,7 +912,7 @@ public:
     void MainLoop() {
         bool running = true;
         while (running) {
-            //Clear screen
+
             SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
             SDL_RenderClear(renderer_);
 
@@ -940,9 +928,6 @@ public:
 
             currentScreen_->Update();
 
-
-
-           // currentScreen_->PrintScreenName();
             if (currentScreen_) {
                 currentScreen_->Render(renderer_);
             }
@@ -1066,7 +1051,7 @@ private:
         }
         else {
             highscore_ = 0;
-            SaveHighscore();  // Creates the file if it doesn't exist
+            SaveHighscore();  
         }
     }
 
@@ -1152,23 +1137,11 @@ private:
 
 class GameScreen : public Screen {
 public:
-    // Implement the methods from Screen
     void Enter() override {
-        // Create a blue rectangle in the top right corner of the screen
-        /*int topRightX = window_->GetWidth() - 100;
-        Rectangle* rectangle = new Rectangle(Position(topRightX, 0), Dimension(100, 100));
-        rectangle->SetColor({ 0, 0, 255, 255 });
-        AddComponent(rectangle);*/
-        
 
-        /*getcurrenthighest score*/
-        /*
         if (TTF_Init() == -1) {
             std::cerr << "SDL_ttf could not initialize! SDL_ttf Error: " << TTF_GetError() << std::endl;
-      
         }
-
-
 
         font = TTF_OpenFont(FONT_PATH.c_str(), 45);
        
@@ -1191,7 +1164,7 @@ public:
         
 
 
-       /* Text* counterText = new Text(Position(35, 25), Dimension(250, 50), "Apples eaten :", font);
+        Text* counterText = new Text(Position(35, 25), Dimension(250, 50), "Apples eaten :", font);
 
         appleCounter = new TextCounter(Position(295, 35), Dimension(40, 40), font, window_->GetRenderer());
         
@@ -1208,17 +1181,12 @@ public:
         AddComponent(appleCounter);
         AddComponent(gameTimer);
         AddComponent(counterText);
-        AddComponent(timerText);*/
-       /* int topRightX = window_->GetWidth() - 100;
-        Rectangle* rectangle = new Rectangle(Position(topRightX, 0), Dimension(100, 100));
-        rectangle->SetColor({ 0, 0, 255, 255 });
-        AddComponent(rectangle);*/
+        AddComponent(timerText);
 
-        /*
-         
+
         grid = new Grid(Position(0, 100), Dimension(800, 500), 50);
 
-        // Inside Enter function
+
         snake = new Snake(grid);
 
         apple = new Apple(grid);
@@ -1245,10 +1213,7 @@ public:
     void RestartGame()
     {
         gameOver = false;
-        /*clear up old snake, clear up it's space*/
-        /*init snake again*/
 
-        /*
     }
     void Update() override
     {
@@ -1407,11 +1372,11 @@ private:
     Apple* apple = nullptr;
     GameOver* gameOverUI = nullptr;
     TTF_Font* font = nullptr;
-
+    Timer* gameTimer = nullptr;
+    TextCounter* appleCounter = nullptr;
     Uint32 lastSnakeMoveTime_ = 0;
     Uint32 snakeMoveInterval_ = 210;
-   // Timer* gameTimer = nullptr;
-   // TextCounter* appleCounter = nullptr;
+
     Stats* stats = nullptr;
     int applesEaten_ = 0;
     bool gameOver = false;
@@ -1454,15 +1419,14 @@ class MenuScreen : public Screen {
 public:
 
     void Enter() override {
-        // Create a red rectangle in the center of the screen
+
         if (TTF_Init() == -1) {
             std::cerr << "SDL_ttf could not initialize! SDL_ttf Error: " << TTF_GetError() << std::endl;
             return;
         }
 
 
-        // Load font
-        TTF_Font* font = TTF_OpenFont(FONT_PATH.c_str(), 28);  // Replace path_to_font.ttf with path to your .ttf file
+        TTF_Font* font = TTF_OpenFont(FONT_PATH.c_str(), 28); 
         if (!font) {
 
             font = TTF_OpenFont(FONT_PATH_EXE.c_str(), 28);
@@ -1474,11 +1438,6 @@ public:
             
         }
 
-
-
-
-
-        // Initialize MenuUI
         menuUI = new MenuUI(font, window_->GetRenderer(), IMAGE_PATH);
 
         AddComponent(menuUI);
@@ -1503,14 +1462,14 @@ public:
             }
             
         }
-       /* else if (evt.type == SDL_KEYDOWN) {
+       else if (evt.type == SDL_KEYDOWN) {
             if (evt.key.keysym.sym == SDLK_RETURN) {
                 if (window_) {
                     window_->SetScreen(new GameScreen());
                 }
             }
-        }*/
-    /*
+        }
+
     }
     void PrintScreenName() override
     {
@@ -1525,7 +1484,9 @@ private:
 
 
 
+
 */
+
 
 
 
@@ -1535,12 +1496,12 @@ int main(int argc, char* argv[])
     std::srand(std::time(nullptr));
     std::cout << "Current path is " << std::filesystem::current_path() << '\n';
 
-  //  Window window;
-  //  MenuScreen menuScreen;
+    Window window;
+    MenuScreen menuScreen;
 
 
- //   window.SetScreen(&menuScreen);
- //window.MainLoop();
+   window.SetScreen(&menuScreen);
+   window.MainLoop();
 
     return 0;
 }
